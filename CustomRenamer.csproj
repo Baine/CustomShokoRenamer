@@ -7,8 +7,8 @@
     <ProjectGuid>{534CBED0-DF97-4085-8916-912BA52E08F0}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Renamer.Cazzar</RootNamespace>
-    <AssemblyName>Renamer.Cazzar</AssemblyName>
+    <RootNamespace>Renamer.Baine</RootNamespace>
+    <AssemblyName>Renamer.Baine</AssemblyName>
     <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -17,7 +17,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\Shoko.Server\bin\Debug\Renamer\</OutputPath>
+    <OutputPath>..\Shoko.Server\bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -25,7 +25,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\Shoko.Server\bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -53,15 +53,15 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="ShokoServer\Shoko.Commons\Shoko.Commons.csproj">
+    <ProjectReference Include="..\Shoko.Commons\Shoko.Commons.csproj">
       <Project>{e0399140-9902-4f38-909d-85e42717ec30}</Project>
       <Name>Shoko.Commons</Name>
     </ProjectReference>
-    <ProjectReference Include="ShokoServer\Shoko.Commons\Shoko.Models\Shoko.Models.csproj">
+    <ProjectReference Include="..\Shoko.Commons\Shoko.Models\Shoko.Models.csproj">
       <Project>{F73F9DF6-580A-4341-B516-8717626F9D42}</Project>
       <Name>Shoko.Models</Name>
     </ProjectReference>
-    <ProjectReference Include="ShokoServer\Shoko.Server\Shoko.Server.csproj">
+    <ProjectReference Include="..\Shoko.Server\Shoko.Server.csproj">
       <Project>{DA8F0783-0F82-4106-9860-6F09BA2EA522}</Project>
       <Name>Shoko.Server</Name>
     </ProjectReference>
