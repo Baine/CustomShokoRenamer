@@ -20,7 +20,7 @@ namespace Renamer.Baine
         {
             foreach (string lang in langs)
             {
-                string title = RepoFactory.AniDB_Episode_Title.GetByEpisodeIDAndLanguage(episode.EpisodeID, lang)[0].Title;
+                string title = RepoFactory.AniDB_Episode_Title.GetByEpisodeIDAndLanguage(episode.EpisodeID, lang).FirstOrDefault()?.Title;
                 if (title != null) return title;
             }
             return RepoFactory.AniDB_Episode_Title.GetByEpisodeIDAndLanguage(episode.EpisodeID, "main")[0].Title;
@@ -43,6 +43,21 @@ namespace Renamer.Baine
             var file = video.GetAniDBFile();
             var episode = video.GetAnimeEpisodes()[0].AniDB_Episode;
             var anime = RepoFactory.AniDB_Anime.GetByAnimeID(episode.AnimeID);
+
+            if(file == null)
+            {
+                return "*Error: Unable to access file";
+            }
+
+            if(episode == null)
+            {
+                return "*Error: Unable to get Episode for file";
+            }
+
+            if (anime == null)
+            {
+                return "*Error: Unable to get anime for file";
+            }
 
             StringBuilder name = new StringBuilder();
 
@@ -105,8 +120,8 @@ namespace Renamer.Baine
         {
             var anime = RepoFactory.AniDB_Anime.GetByAnimeID(video.VideoLocal.GetAnimeEpisodes()[0].AniDB_Episode.AnimeID);
             var location = "/anime/";
-
-            if (anime.TagsString.Contains("sex") || anime.TagsString.Contains("pornography") || anime.TagsString.Contains("18 restricted") || anime.Restricted > 0) location = "/porn/";
+            bool IsPorn = anime.Restricted > 0;
+            if (IsPorn) location = "/hentai/";
 
             ImportFolder dest = RepoFactory.ImportFolder.GetByImportLocation(location);
 
