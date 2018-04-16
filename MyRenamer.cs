@@ -7,6 +7,7 @@ using Shoko.Server.Renamer;
 using Shoko.Server.Repositories;
 using Shoko.Server;
 using System.Linq;
+using System.IO;
 
 namespace Renamer.Baine
 {
@@ -51,7 +52,7 @@ namespace Renamer.Baine
 
             if(episode == null)
             {
-                return "*Error: Unable to get Episode for file";
+                return "*Error: Unable to get episode for file";
             }
 
             if (anime == null)
@@ -60,13 +61,6 @@ namespace Renamer.Baine
             }
 
             StringBuilder name = new StringBuilder();
-
-            //if (!string.IsNullOrWhiteSpace(file.Anime_GroupNameShort))
-            //    name.Append($"[{file.Anime_GroupNameShort}]");
-
-            //name.Append($" {anime.PreferredTitle}");
-            name.Append($"{GetTitleByPref(anime, "official", "de", "en", "x-jat")}");
-
 
             string prefix = "";
 
@@ -86,27 +80,17 @@ namespace Renamer.Baine
 
             name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}");
 
-            //name.Append($" ({video.VideoResolution}");
-            //if (file.File_Source != null &&
-            //    (file.File_Source.Equals("DVD", StringComparison.InvariantCultureIgnoreCase) ||
-            //     file.File_Source.Equals("Blu-ray", StringComparison.InvariantCultureIgnoreCase)))
+            var epTitle = GetTitleByPref(anime, "official", "de", "en", "x-jat");
+            if (epTitle.Length > 33) epTitle = epTitle.Substring(0, 33 - 1) + "...";
+            name.Append($" - {epTitle}");
 
-            //name.Append($" {file.File_Source}");
+            name.Append($"{Path.GetExtension(video.GetBestVideoLocalPlace().FilePath)}");
 
-            //name.Append($" {(file?.File_VideoCodec ?? video.VideoCodec).Replace("\\", "").Replace("/", "")}".TrimEnd());
+            if (string.IsNullOrEmpty(name.ToString()))
+                return "*Error: The new filename is empty. Script error?";
 
-            //if (video.VideoBitDepth == "10")
-            //    name.Append($" {video.VideoBitDepth}bit");
-            //name.Append(')');
-
-            //if (file.IsCensored != 0) name.Append(" [CEN]");
-
-            //name.Append($" [{video.CRC32.ToUpper()}]");
-
-            name.Append($" - {GetEpNameByPref(episode,"officle","de","en","x-jat")}");
-            name.Append($"{System.IO.Path.GetExtension(video.GetBestVideoLocalPlace().FilePath)}");
-
-
+            if (File.Exists(Path.Combine(Path.GetDirectoryName(video.GetBestVideoLocalPlace().FilePath), name.ToString()))) // Has potential null error, im bad pls fix ty 
+                return "*Error: A file with this filename already exists";
 
             return Utils.ReplaceInvalidFolderNameCharacters(name.ToString());
         }
