@@ -8,6 +8,8 @@ using Shoko.Server.Repositories;
 using Shoko.Server;
 using System.Linq;
 using System.IO;
+using NLog;
+using System;
 
 namespace Renamer.Baine
 {
@@ -15,6 +17,7 @@ namespace Renamer.Baine
     [Renamer("BaineRenamer", Description = "Baine's Custom Renamer")]
     public class MyRenamer : IRenamer
     {
+        private static Logger logger = LogManager.GetCurrentClassLogger();
         public string GetFileName(SVR_VideoLocal_Place video) => GetFileName(video.VideoLocal);
 
         private string GetEpNameByPref(AniDB_Episode episode, string type, params string[] langs)
@@ -41,16 +44,25 @@ namespace Renamer.Baine
 
         public string GetFileName(SVR_VideoLocal video)
         {
-            var file = video.GetAniDBFile();
-            var episode = video.GetAnimeEpisodes()[0].AniDB_Episode;
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(episode.AnimeID);
-
-            if(file == null)
+            if (!File.Exists(video.GetBestVideoLocalPlace().FullServerPath))
             {
-                return "*Error: Unable to access file";
+                logger.Info("File no longer exists: " + video.GetBestVideoLocalPlace().FullServerPath);
+                return "*Error: No such file exists in the FS.";
             }
 
-            if(episode == null)
+            AniDB_Episode episode = null;
+            SVR_AniDB_Anime anime = null;
+            try
+            {
+                episode = video.GetAnimeEpisodes()[0].AniDB_Episode;
+                anime = RepoFactory.AniDB_Anime.GetByAnimeID(episode.AnimeID);
+            }
+            catch
+            {
+                return "*Error: File is not linked to any episode.";
+            }
+
+            if (episode == null)
             {
                 return "*Error: Unable to get episode for file";
             }
@@ -62,16 +74,15 @@ namespace Renamer.Baine
 
             StringBuilder name = new StringBuilder();
 
+            name.Append($"{GetTitleByPref(anime, "official", "de", "en", "x-jat")}");
+
             string prefix = "";
 
-            if (anime.AnimeType != (int)AnimeType.Movie)
-            {
-                if (episode.GetEpisodeTypeEnum() == EpisodeType.Credits) prefix = "C";
-                if (episode.GetEpisodeTypeEnum() == EpisodeType.Other) prefix = "O";
-                if (episode.GetEpisodeTypeEnum() == EpisodeType.Parody) prefix = "P";
-                if (episode.GetEpisodeTypeEnum() == EpisodeType.Special) prefix = "S";
-                if (episode.GetEpisodeTypeEnum() == EpisodeType.Trailer) prefix = "T";
-            }
+            if (episode.GetEpisodeTypeEnum() == EpisodeType.Credits) prefix = "C";
+            if (episode.GetEpisodeTypeEnum() == EpisodeType.Other) prefix = "O";
+            if (episode.GetEpisodeTypeEnum() == EpisodeType.Parody) prefix = "P";
+            if (episode.GetEpisodeTypeEnum() == EpisodeType.Special) prefix = "S";
+            if (episode.GetEpisodeTypeEnum() == EpisodeType.Trailer) prefix = "T";
 
             int epCount = 1;
 
@@ -80,16 +91,30 @@ namespace Renamer.Baine
 
             name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}");
 
-            var epTitle = GetTitleByPref(anime, "official", "de", "en", "x-jat");
+            var epTitle = GetEpNameByPref(episode, "official", "de", "en", "x-jat");
             if (epTitle.Length > 33) epTitle = epTitle.Substring(0, 33 - 1) + "...";
             name.Append($" - {epTitle}");
+
+            var epFiles = RepoFactory.CrossRef_File_Episode.GetByEpisodeID(episode.EpisodeID);
+
+            if (epFiles.Count > 1)
+            {
+                int epIndex = 0;
+                foreach (CrossRef_File_Episode c in epFiles)
+                {
+                    if (c.Hash == video.Hash)
+                        epIndex = epFiles.IndexOf(c);
+                }
+                name.Append(" - Part " + (epIndex + 1).ToString() + " of " + epFiles.Count);
+            }
+            
 
             name.Append($"{Path.GetExtension(video.GetBestVideoLocalPlace().FilePath)}");
 
             if (string.IsNullOrEmpty(name.ToString()))
                 return "*Error: The new filename is empty. Script error?";
 
-            if (File.Exists(Path.Combine(Path.GetDirectoryName(video.GetBestVideoLocalPlace().FilePath), name.ToString()))) // Has potential null error, im bad pls fix ty 
+            if (File.Exists(Path.Combine(Path.GetDirectoryName(video.GetBestVideoLocalPlace().FilePath), Utils.ReplaceInvalidFolderNameCharacters(name.ToString())))) // Has potential null error, im bad pls fix ty 
                 return "*Error: A file with this filename already exists";
 
             return Utils.ReplaceInvalidFolderNameCharacters(name.ToString());
@@ -106,6 +131,12 @@ namespace Renamer.Baine
             var location = "/anime/";
             bool IsPorn = anime.Restricted > 0;
             if (IsPorn) location = "/hentai/";
+
+            if(!Utils.IsLinux || !Utils.IsRunningOnMono())
+            {
+                location = "W:\\Anime\\";
+                if (IsPorn) location = "W:\\Downloads\\Hentai\\_sorted\\";
+            }
 
             ImportFolder dest = RepoFactory.ImportFolder.GetByImportLocation(location);
 
