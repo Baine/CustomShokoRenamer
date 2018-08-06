@@ -9,7 +9,6 @@ using Shoko.Server;
 using System.Linq;
 using System.IO;
 using NLog;
-using System;
 
 namespace Renamer.Baine
 {
@@ -128,14 +127,19 @@ namespace Renamer.Baine
         public (ImportFolder dest, string folder) GetDestinationFolder(SVR_VideoLocal_Place video)
         {
             var anime = RepoFactory.AniDB_Anime.GetByAnimeID(video.VideoLocal.GetAnimeEpisodes()[0].AniDB_Episode.AnimeID);
-            var location = "/anime/";
+            var location = "/anime/Series/";
             bool IsPorn = anime.Restricted > 0;
-            if (IsPorn) location = "/hentai/";
+            if (IsPorn) location = "/hentai/Series";
 
-            if(!Utils.IsLinux || !Utils.IsRunningOnMono())
+            if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "/anime/Movies/";
+            if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "/hentai/Movies/";
+
+            if (!Utils.IsLinux)
             {
-                location = "W:\\Anime\\";
-                if (IsPorn) location = "W:\\Downloads\\Hentai\\_sorted\\";
+                location = "W:\\Anime\\Series";
+                if (IsPorn) location = "W:\\Hentai\\Series";
+                if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "W:\\Anime\\Movies";
+                if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "W:\\Hentai\\Movies";
             }
 
             ImportFolder dest = RepoFactory.ImportFolder.GetByImportLocation(location);
