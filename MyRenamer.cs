@@ -1,14 +1,16 @@
-﻿using System.Text;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Models.Server;
 using Shoko.Server.Models;
 using Shoko.Server.Renamer;
-using Shoko.Server.Repositories;
 using Shoko.Server;
 using System.Linq;
 using System.IO;
 using NLog;
+using Shoko.Server.Repositories;
 
 namespace Renamer.Baine
 {
@@ -49,21 +51,18 @@ namespace Renamer.Baine
                 return "*Error: No such file exists in the FS.";
             }
 
+            List<SVR_AnimeEpisode> episodes = null;
             AniDB_Episode episode = null;
             SVR_AniDB_Anime anime = null;
             try
             {
-                episode = video.GetAnimeEpisodes()[0].AniDB_Episode;
+                episodes = video.GetAnimeEpisodes();
+                episode = episodes[0].AniDB_Episode;
                 anime = RepoFactory.AniDB_Anime.GetByAnimeID(episode.AnimeID);
             }
             catch
             {
                 return "*Error: File is not linked to any episode.";
-            }
-
-            if (episode == null)
-            {
-                return "*Error: Unable to get episode for file";
             }
 
             if (anime == null)
@@ -88,24 +87,22 @@ namespace Renamer.Baine
             if (episode.GetEpisodeTypeEnum() == EpisodeType.Episode) epCount = anime.EpisodeCountNormal;
             if (episode.GetEpisodeTypeEnum() == EpisodeType.Special) epCount = anime.EpisodeCountSpecial;
 
-            name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}");
-
-            var epTitle = GetEpNameByPref(episode, "official", "de", "en", "x-jat");
-            if (epTitle.Length > 33) epTitle = epTitle.Substring(0, 33 - 1) + "...";
-            name.Append($" - {epTitle}");
-
-            var epFiles = RepoFactory.CrossRef_File_Episode.GetByEpisodeID(episode.EpisodeID);
-
-            if (epFiles.Count > 1)
+            if (episodes.Count == 1)
+                name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}");
+            else
             {
-                int epIndex = 0;
-                foreach (CrossRef_File_Episode c in epFiles)
-                {
-                    if (c.Hash == video.Hash)
-                        epIndex = epFiles.IndexOf(c);
-                }
-                name.Append(" - Part " + (epIndex + 1).ToString() + " of " + epFiles.Count);
+                int epNumbers = episodes.Count;
+                name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}-{prefix}{PadNumberTo(episodes[episodes.Count-1].AniDB_Episode.EpisodeNumber, epCount)}");
             }
+
+            string epTitle = GetEpNameByPref(episode, "official", "de", "en", "x-jat");
+            if (episodes.Count > 1)
+            {
+                for(int i=1;i<episodes.Count;i++)
+                    epTitle += " & " + GetEpNameByPref(episodes[i].AniDB_Episode, "official", "de", "en", "x-jat");
+            }
+            if (epTitle.Length > 75) epTitle = epTitle.Substring(0, 75 - 1) + "...";
+            name.Append($" - {epTitle}");
             
 
             name.Append($"{Path.GetExtension(video.GetBestVideoLocalPlace().FilePath)}");
@@ -113,10 +110,9 @@ namespace Renamer.Baine
             if (string.IsNullOrEmpty(name.ToString()))
                 return "*Error: The new filename is empty. Script error?";
 
-            if (File.Exists(Path.Combine(Path.GetDirectoryName(video.GetBestVideoLocalPlace().FilePath), Utils.ReplaceInvalidFolderNameCharacters(name.ToString())))) // Has potential null error, im bad pls fix ty 
-                return "*Error: A file with this filename already exists";
-
-            return Utils.ReplaceInvalidFolderNameCharacters(name.ToString());
+            return File.Exists(Path.Combine(Path.GetDirectoryName(video.GetBestVideoLocalPlace().FilePath), Utils.ReplaceInvalidFolderNameCharacters(name.ToString())))
+                ? "*Error: A file with this filename already exists"
+                : Utils.ReplaceInvalidFolderNameCharacters(name.ToString());
         }
 
         string PadNumberTo(int number, int max, char padWith = '0')
@@ -126,20 +122,29 @@ namespace Renamer.Baine
 
         public (ImportFolder dest, string folder) GetDestinationFolder(SVR_VideoLocal_Place video)
         {
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(video.VideoLocal.GetAnimeEpisodes()[0].AniDB_Episode.AnimeID);
-            var location = "/anime/Series/";
-            bool IsPorn = anime.Restricted > 0;
-            if (IsPorn) location = "/hentai/Series";
+            SVR_AniDB_Anime anime;
+            try
+            {
+                anime = RepoFactory.AniDB_Anime.GetByAnimeID(video.VideoLocal.GetAnimeEpisodes()[0].AniDB_Episode.AnimeID);
+            }
+            catch
+            {
+                return (null, "*Error: File not linked to any Episode");
+            }
 
-            if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "/anime/Movies/";
-            if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "/hentai/Movies/";
+            var location = "/opt/share/Anime/Series/";
+            bool isPorn = anime.Restricted > 0;
+            if (isPorn) location = "/opt/share/Hentai/Series";
+
+            if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "/opt/share/Anime/Movies/";
+            if (anime.GetAnimeTypeEnum() == AnimeType.Movie && isPorn) location = "/opt/share/Hentai/Movies/";
 
             if (!Utils.IsLinux)
             {
                 location = "W:\\Anime\\Series";
-                if (IsPorn) location = "W:\\Hentai\\Series";
+                if (isPorn) location = "W:\\Hentai\\Series";
                 if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "W:\\Anime\\Movies";
-                if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "W:\\Hentai\\Movies";
+                if (anime.GetAnimeTypeEnum() == AnimeType.Movie && isPorn) location = "W:\\Hentai\\Movies";
             }
 
             ImportFolder dest = RepoFactory.ImportFolder.GetByImportLocation(location);
