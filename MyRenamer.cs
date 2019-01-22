@@ -4,11 +4,11 @@ using Shoko.Models.Enums;
 using Shoko.Models.Server;
 using Shoko.Server.Models;
 using Shoko.Server.Renamer;
-using Shoko.Server.Repositories;
 using Shoko.Server;
 using System.Linq;
 using System.IO;
 using NLog;
+using Shoko.Server.Repositories;
 
 namespace Renamer.Baine
 {
@@ -93,19 +93,6 @@ namespace Renamer.Baine
             var epTitle = GetEpNameByPref(episode, "official", "de", "en", "x-jat");
             if (epTitle.Length > 33) epTitle = epTitle.Substring(0, 33 - 1) + "...";
             name.Append($" - {epTitle}");
-
-            var epFiles = RepoFactory.CrossRef_File_Episode.GetByEpisodeID(episode.EpisodeID);
-
-            if (epFiles.Count > 1)
-            {
-                int epIndex = 0;
-                foreach (CrossRef_File_Episode c in epFiles)
-                {
-                    if (c.Hash == video.Hash)
-                        epIndex = epFiles.IndexOf(c);
-                }
-                name.Append(" - Part " + (epIndex + 1).ToString() + " of " + epFiles.Count);
-            }
             
 
             name.Append($"{Path.GetExtension(video.GetBestVideoLocalPlace().FilePath)}");
@@ -128,7 +115,7 @@ namespace Renamer.Baine
         {
             var anime = RepoFactory.AniDB_Anime.GetByAnimeID(video.VideoLocal.GetAnimeEpisodes()[0].AniDB_Episode.AnimeID);
             var location = "/anime/Series/";
-            bool IsPorn = anime.Restricted > 0;
+            bool IsPorn = anime.TagsString.Contains("sex") || anime.TagsString.Contains("pornography") || anime.Restricted > 0;
             if (IsPorn) location = "/hentai/Series";
 
             if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "/anime/Movies/";
