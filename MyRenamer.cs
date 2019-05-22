@@ -91,7 +91,7 @@ namespace Renamer.Baine
             name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}");
 
             var epTitle = GetEpNameByPref(episode, "official", "de", "en", "x-jat");
-            if (epTitle.Length > 33) epTitle = epTitle.Substring(0, 33 - 1) + "...";
+            if (epTitle.Length > 100) epTitle = epTitle.Substring(0, 100 - 1) + "...";
             name.Append($" - {epTitle}");
             
 
@@ -113,20 +113,31 @@ namespace Renamer.Baine
 
         public (ImportFolder dest, string folder) GetDestinationFolder(SVR_VideoLocal_Place video)
         {
-            var anime = RepoFactory.AniDB_Anime.GetByAnimeID(video.VideoLocal.GetAnimeEpisodes()[0].AniDB_Episode.AnimeID);
-            var location = "/anime/Series/";
-            bool IsPorn = anime.TagsString.Contains("sex") || anime.TagsString.Contains("pornography") || anime.Restricted > 0;
-            if (IsPorn) location = "/hentai/Series";
+            SVR_AniDB_Anime anime = null;
+            try
+            {
+                 anime = RepoFactory.AniDB_Anime.GetByAnimeID(video.VideoLocal.GetAnimeEpisodes()[0].AniDB_Episode.AnimeID);
+            }
+            catch
+            {
+                return (null, "*Error: File is not linked to any Episode");
+            }
+            if (anime == null)
+                return (null, "*Error: File is not linked to any Episode");
 
-            if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "/anime/Movies/";
-            if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "/hentai/Movies/";
+            var location = "/opt/share/Anime/Series/";
+            bool IsPorn = anime.Restricted > 0;
+            if (IsPorn) location = "/opt/share/Hentai/Series";
+
+            if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "/opt/share/Anime/Movies/";
+            if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "/opt/share/Hentai/Movies/";
 
             if (!Utils.IsLinux)
             {
-                location = "W:\\Anime\\Series";
-                if (IsPorn) location = "W:\\Hentai\\Series";
-                if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "W:\\Anime\\Movies";
-                if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "W:\\Hentai\\Movies";
+                location = "Z:\\Anime\\Series";
+                if (IsPorn) location = "Z:\\Hentai\\Series";
+                if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "Z:\\Anime\\Movies";
+                if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "Z:\\Hentai\\Movies";
             }
 
             ImportFolder dest = RepoFactory.ImportFolder.GetByImportLocation(location);
