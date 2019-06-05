@@ -9,6 +9,7 @@ using System.Linq;
 using System.IO;
 using NLog;
 using Shoko.Server.Repositories;
+using System.Collections.Generic;
 
 namespace Renamer.Baine
 {
@@ -49,11 +50,13 @@ namespace Renamer.Baine
                 return "*Error: No such file exists in the FS.";
             }
 
+            List<SVR_AnimeEpisode> episodes = null;
             AniDB_Episode episode = null;
             SVR_AniDB_Anime anime = null;
             try
             {
-                episode = video.GetAnimeEpisodes()[0].AniDB_Episode;
+                episodes = video.GetAnimeEpisodes();
+                episode = episodes[0].AniDB_Episode;
                 anime = RepoFactory.AniDB_Anime.GetByAnimeID(episode.AnimeID);
             }
             catch
@@ -88,12 +91,23 @@ namespace Renamer.Baine
             if (episode.GetEpisodeTypeEnum() == EpisodeType.Episode) epCount = anime.EpisodeCountNormal;
             if (episode.GetEpisodeTypeEnum() == EpisodeType.Special) epCount = anime.EpisodeCountSpecial;
 
-            name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}");
+            if (episodes.Count == 1)
+                name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}");
+            else
+            {
+                int epNumbers = episodes.Count;
+                name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}-{prefix}{PadNumberTo(episodes[episodes.Count - 1].AniDB_Episode.EpisodeNumber, epCount)}");
+            }
 
-            var epTitle = GetEpNameByPref(episode, "official", "de", "en", "x-jat");
-            if (epTitle.Length > 100) epTitle = epTitle.Substring(0, 100 - 1) + "...";
+            string epTitle = GetEpNameByPref(episode, "official", "de", "en", "x-jat");
+            if (episodes.Count > 1)
+            {
+                for (int i = 1; i < episodes.Count; i++)
+                    epTitle += " & " + GetEpNameByPref(episodes[i].AniDB_Episode, "official", "de", "en", "x-jat");
+            }
+            if (epTitle.Length >100) epTitle = epTitle.Substring(0, 100 - 1) + "...";
             name.Append($" - {epTitle}");
-            
+
 
             name.Append($"{Path.GetExtension(video.GetBestVideoLocalPlace().FilePath)}");
 
