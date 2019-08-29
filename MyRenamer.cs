@@ -106,18 +106,20 @@ namespace Renamer.Baine
                     epTitle += " & " + GetEpNameByPref(episodes[i].AniDB_Episode, "official", "de", "en", "x-jat");
             }
             if (epTitle.Length >100) epTitle = epTitle.Substring(0, 100 - 1) + "...";
+            if (epTitle.EndsWith("...")) epTitle = string.Concat(epTitle, ".");
             name.Append($" - {epTitle}");
 
+            string nameRet = Utils.ReplaceInvalidFolderNameCharacters(name.ToString());
 
-            name.Append($"{Path.GetExtension(video.GetBestVideoLocalPlace().FilePath)}");
+            nameRet = string.Concat(nameRet, $"{Path.GetExtension(video.GetBestVideoLocalPlace().FilePath)}");
 
-            if (string.IsNullOrEmpty(name.ToString()))
+            if (string.IsNullOrEmpty(nameRet))
                 return "*Error: The new filename is empty. Script error?";
 
-            if (File.Exists(Path.Combine(Path.GetDirectoryName(video.GetBestVideoLocalPlace().FilePath), Utils.ReplaceInvalidFolderNameCharacters(name.ToString())))) // Has potential null error, im bad pls fix ty 
+            if (File.Exists(Path.Combine(Path.GetDirectoryName(video.GetBestVideoLocalPlace().FilePath), nameRet))) // Has potential null error, im bad pls fix ty 
                 return "*Error: A file with this filename already exists";
 
-            return Utils.ReplaceInvalidFolderNameCharacters(name.ToString());
+            return nameRet;
         }
 
         string PadNumberTo(int number, int max, char padWith = '0')
