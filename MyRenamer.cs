@@ -141,12 +141,115 @@ namespace Renamer.Baine
             if (anime == null)
                 return (null, "*Error: File is not linked to any Episode");
 
+            IEnumerable<string> subLanguagesFile = null;
+            IEnumerable<string> audioLanguagesFile = null;
+            try
+            {
+                subLanguagesFile = video.VideoLocal.Media.Parts.SelectMany(a => a.Streams).Where(a => a.StreamType == 3)
+                    .Select(a => a.Language).Distinct();
+                audioLanguagesFile = video.VideoLocal.Media.Parts.SelectMany(a => a.Streams).Where(a => a.StreamType == 2)
+                    .Select(a => a.Language).Distinct();
+            }
+            catch
+            {
+            }
+
+            List<Language> subLanguagesAniDB = null;
+            List<Language> audioLanguagesAniDB = null;
+
+            try
+            {
+                audioLanguagesAniDB = video.VideoLocal.GetAniDBFile().Languages;
+                subLanguagesAniDB = video.VideoLocal.GetAniDBFile().Subtitles;
+            }
+            catch
+            {
+
+            }
+
+            bool isGerDub = false;
+            bool isGerSub = false;
+
+            if(subLanguagesAniDB != null && audioLanguagesAniDB != null &&
+                subLanguagesAniDB.Count >=1 && audioLanguagesAniDB.Count >= 1)
+            {
+                foreach (Language l in audioLanguagesAniDB)
+                    if (l.LanguageName.ToLower().Contains("german"))
+                        isGerDub = true;
+                foreach (Language l in subLanguagesAniDB)
+                    if (l.LanguageName.ToLower().Contains("german"))
+                        isGerSub = true;
+            }
+
+            if ((subLanguagesAniDB == null && audioLanguagesAniDB == null) ||
+                (subLanguagesFile.Count() >=1 || audioLanguagesFile.Count() >=1))
+            {
+                if(subLanguagesFile.Count() >= 1)
+                {
+                    foreach(string l in subLanguagesFile)
+                    {
+                        if (l != null && l.ToLower().Contains("german"))
+                            isGerSub = true;
+                    }
+                }
+
+                if(audioLanguagesFile.Count() >= 1)
+                {
+                    foreach (string l in audioLanguagesFile)
+                    {
+                        if (l != null && l.ToLower().Contains("german"))
+                            isGerDub = true;
+                    }
+                }
+
+            }
+
             var location = "/opt/share/Anime/Series/";
             bool IsPorn = anime.Restricted > 0;
             if (IsPorn) location = "/opt/share/Hentai/Series";
 
-            if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "/opt/share/Anime/Movies/";
-            if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "/opt/share/Hentai/Movies/";
+            if(!IsPorn)
+            {
+                if (!isGerDub && !isGerSub)
+                    location = "/opt/share/Anime/Series/_manual";
+                if (isGerSub)
+                    location = "/opt/share/Anime/Series/GerSub";
+                if (isGerDub)
+                    location = "/opt/share/Anime/Series/GerDub";
+            }
+            else
+            {
+                if (!isGerDub && !isGerSub)
+                    location = "/opt/share/Hentai/Series/_manual";
+                if (isGerSub)
+                    location = "/opt/share/Hentai/Series/GerSub";
+                if (isGerDub)
+                    location = "/opt/share/Hentai/Series/GerDub";
+            }
+
+            if(anime.GetAnimeTypeEnum() == AnimeType.Movie)
+            {
+                if(!IsPorn)
+                {
+                    if (!isGerDub && !isGerSub)
+                        location = "/opt/share/Anime/Movies/_manual";
+                    if (isGerSub)
+                        location = "/opt/share/Anime/Movies/GerSub";
+                    if (isGerDub)
+                        location = "/opt/share/Anime/Movies/GerDub";
+                }
+                else
+                {
+                    if (!isGerDub && !isGerSub)
+                        location = "/opt/share/Hentai/Movies/_manual";
+                    if (isGerSub)
+                        location = "/opt/share/Hentai/Movies/GerSub";
+                    if (isGerDub)
+                        location = "/opt/share/Hentai/Movies/GerDub";
+                }
+            }
+            
+            
 
             if (!Utils.IsLinux)
             {
@@ -154,6 +257,47 @@ namespace Renamer.Baine
                 if (IsPorn) location = "Z:\\Hentai\\Series";
                 if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "Z:\\Anime\\Movies";
                 if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "Z:\\Hentai\\Movies";
+
+                if (!IsPorn)
+                {
+                    if (!isGerDub && !isGerSub)
+                        location = "Z:\\Anime\\Series\\_manual";
+                    if (isGerSub)
+                        location = "Z:\\Anime\\Series\\GerSub";
+                    if (isGerDub)
+                        location = "Z:\\Anime\\Series\\GerDub";
+                }
+                else
+                {
+                    if (!isGerDub && !isGerSub)
+                        location = "Z:\\Hentai\\Series\\_manual";
+                    if (isGerSub)
+                        location = "Z:\\Hentai\\Series\\GerSub";
+                    if (isGerDub)
+                        location = "Z:\\Hentai\\Series\\GerDub";
+                }
+
+                if (anime.GetAnimeTypeEnum() == AnimeType.Movie)
+                {
+                    if (!IsPorn)
+                    {
+                        if (!isGerDub && !isGerSub)
+                            location = "Z:\\Anime\\Movies\\_manual";
+                        if (isGerSub)
+                            location = "Z:\\Anime\\Movies\\GerSub";
+                        if (isGerDub)
+                            location = "Z:\\Anime\\Movies\\GerDub";
+                    }
+                    else
+                    {
+                        if (!isGerDub && !isGerSub)
+                            location = "Z:\\Hentai\\Movies\\_manual";
+                        if (isGerSub)
+                            location = "Z:\\Hentai\\Movies\\GerSub";
+                        if (isGerDub)
+                            location = "Z:\\Hentai\\Movies\\GerDub";
+                    }
+                }
             }
 
             ImportFolder dest = RepoFactory.ImportFolder.GetByImportLocation(location);
