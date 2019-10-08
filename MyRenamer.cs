@@ -100,11 +100,13 @@ namespace Renamer.Baine
             }
 
             string epTitle = GetEpNameByPref(episode, "official", "de", "en", "x-jat");
+
             if (episodes.Count > 1)
             {
                 for (int i = 1; i < episodes.Count; i++)
                     epTitle += " & " + GetEpNameByPref(episodes[i].AniDB_Episode, "official", "de", "en", "x-jat");
             }
+
             if (epTitle.Length >100) epTitle = epTitle.Substring(0, 100 - 1) + "...";
             if (epTitle.EndsWith("...")) epTitle = string.Concat(epTitle, ".");
             name.Append($" - {epTitle}");
@@ -164,140 +166,87 @@ namespace Renamer.Baine
             }
             catch
             {
-
             }
 
             bool isGerDub = false;
             bool isGerSub = false;
+            bool isMovie = false;
+            bool isLinux = true;
+            bool isEngDub = true;
+            bool isEngSub = true;
 
-            if(subLanguagesAniDB != null && audioLanguagesAniDB != null &&
+            if (subLanguagesAniDB != null && audioLanguagesAniDB != null &&
                 subLanguagesAniDB.Count >=1 && audioLanguagesAniDB.Count >= 1)
             {
-                foreach (Language l in audioLanguagesAniDB)
-                    if (l.LanguageName.ToLower().Contains("german"))
-                        isGerDub = true;
-                foreach (Language l in subLanguagesAniDB)
-                    if (l.LanguageName.ToLower().Contains("german"))
-                        isGerSub = true;
+                if (audioLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("german")))
+                    isGerDub = true;
+                if (subLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("german")))
+                    isGerSub = true;
+                if (audioLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("english")))
+                    isEngDub = true;
+                if (subLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("english")))
+                    isEngSub = true;
             }
+            if (audioLanguagesAniDB == null && audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a.ToLower().Contains("german")))
+                isGerDub = true;
 
-            if ((subLanguagesAniDB == null && audioLanguagesAniDB == null) ||
-                (subLanguagesFile.Count() >=1 || audioLanguagesFile.Count() >=1))
-            {
-                if(subLanguagesFile.Count() >= 1)
-                {
-                    foreach(string l in subLanguagesFile)
-                    {
-                        if (l != null && l.ToLower().Contains("german"))
-                            isGerSub = true;
-                    }
-                }
+            if (subLanguagesAniDB == null && subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a.ToLower().Contains("german")))
+                isGerSub = true;
 
-                if(audioLanguagesFile.Count() >= 1)
-                {
-                    foreach (string l in audioLanguagesFile)
-                    {
-                        if (l != null && l.ToLower().Contains("german"))
-                            isGerDub = true;
-                    }
-                }
+            if (audioLanguagesAniDB == null && audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a.ToLower().Contains("english")))
+                isGerDub = isEngDub;
 
-            }
+            if (subLanguagesAniDB == null && subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a.ToLower().Contains("english")))
+                isEngSub = true;
 
-            var location = "/opt/share/Anime/Series/";
+            const string sepWin = "\\";
+            const string sepLin = "/";
+
+            string location = "";
             bool IsPorn = anime.Restricted > 0;
-            if (IsPorn) location = "/opt/share/Hentai/Series";
+            isLinux = Utils.IsLinux;
 
-            if(!IsPorn)
+            location = isLinux ? "/opt/share/" : "Z:\\";
+
+            if (!IsPorn)
             {
-                if (!isGerDub && !isGerSub)
-                    location = "/opt/share/Anime/Series/_manual";
-                if (isGerSub)
-                    location = "/opt/share/Anime/Series/GerSub";
-                if (isGerDub)
-                    location = "/opt/share/Anime/Series/GerDub";
+                location += "Anime";
             }
             else
             {
-                if (!isGerDub && !isGerSub)
-                    location = "/opt/share/Hentai/Series/_manual";
-                if (isGerSub)
-                    location = "/opt/share/Hentai/Series/GerSub";
+                location += "Hentai";
+            }
+
+            if (!isMovie)
+                location += "Series";
+            else
+                location += "Movies";
+
+            location += isLinux ? sepLin : sepWin;
+
+            while (true)
+            {
                 if (isGerDub)
-                    location = "/opt/share/Hentai/Series/GerDub";
-            }
-
-            if(anime.GetAnimeTypeEnum() == AnimeType.Movie)
-            {
-                if(!IsPorn)
                 {
-                    if (!isGerDub && !isGerSub)
-                        location = "/opt/share/Anime/Movies/_manual";
-                    if (isGerSub)
-                        location = "/opt/share/Anime/Movies/GerSub";
-                    if (isGerDub)
-                        location = "/opt/share/Anime/Movies/GerDub";
-                }
-                else
-                {
-                    if (!isGerDub && !isGerSub)
-                        location = "/opt/share/Hentai/Movies/_manual";
-                    if (isGerSub)
-                        location = "/opt/share/Hentai/Movies/GerSub";
-                    if (isGerDub)
-                        location = "/opt/share/Hentai/Movies/GerDub";
-                }
-            }
-            
-            
-
-            if (!Utils.IsLinux)
-            {
-                location = "Z:\\Anime\\Series";
-                if (IsPorn) location = "Z:\\Hentai\\Series";
-                if (anime.GetAnimeTypeEnum() == AnimeType.Movie) location = "Z:\\Anime\\Movies";
-                if (anime.GetAnimeTypeEnum() == AnimeType.Movie && IsPorn) location = "Z:\\Hentai\\Movies";
-
-                if (!IsPorn)
-                {
-                    if (!isGerDub && !isGerSub)
-                        location = "Z:\\Anime\\Series\\_manual";
-                    if (isGerSub)
-                        location = "Z:\\Anime\\Series\\GerSub";
-                    if (isGerDub)
-                        location = "Z:\\Anime\\Series\\GerDub";
-                }
-                else
-                {
-                    if (!isGerDub && !isGerSub)
-                        location = "Z:\\Hentai\\Series\\_manual";
-                    if (isGerSub)
-                        location = "Z:\\Hentai\\Series\\GerSub";
-                    if (isGerDub)
-                        location = "Z:\\Hentai\\Series\\GerDub";
+                    location += "GerDub";
+                    break;
                 }
 
-                if (anime.GetAnimeTypeEnum() == AnimeType.Movie)
+                if (isGerSub)
                 {
-                    if (!IsPorn)
-                    {
-                        if (!isGerDub && !isGerSub)
-                            location = "Z:\\Anime\\Movies\\_manual";
-                        if (isGerSub)
-                            location = "Z:\\Anime\\Movies\\GerSub";
-                        if (isGerDub)
-                            location = "Z:\\Anime\\Movies\\GerDub";
-                    }
-                    else
-                    {
-                        if (!isGerDub && !isGerSub)
-                            location = "Z:\\Hentai\\Movies\\_manual";
-                        if (isGerSub)
-                            location = "Z:\\Hentai\\Movies\\GerSub";
-                        if (isGerDub)
-                            location = "Z:\\Hentai\\Movies\\GerDub";
-                    }
+                    location += "GerSub";
+                    break;
                 }
+
+                if (!isGerDub && !isGerSub && (isEngDub || isEngSub))
+                {
+                    location += "Other";
+                    break;
+                }
+
+                location += "_manual";
+                break;
+                    
             }
 
             ImportFolder dest = RepoFactory.ImportFolder.GetByImportLocation(location);
