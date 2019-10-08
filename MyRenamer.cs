@@ -147,9 +147,9 @@ namespace Renamer.Baine
             IEnumerable<string> audioLanguagesFile = null;
             try
             {
-                subLanguagesFile = video.VideoLocal.Media.Parts.SelectMany(a => a.Streams).Where(a => a.StreamType == 3)
+                subLanguagesFile = video.VideoLocal.Media.Parts.SelectMany(a => a.Streams).Where(a => a != null && a.StreamType == 3)
                     .Select(a => a.Language).Distinct();
-                audioLanguagesFile = video.VideoLocal.Media.Parts.SelectMany(a => a.Streams).Where(a => a.StreamType == 2)
+                audioLanguagesFile = video.VideoLocal.Media.Parts.SelectMany(a => a.Streams).Where(a => a != null && a.StreamType == 2)
                     .Select(a => a.Language).Distinct();
             }
             catch
@@ -187,16 +187,16 @@ namespace Renamer.Baine
                 if (subLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("english")))
                     isEngSub = true;
             }
-            if (audioLanguagesAniDB == null && audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a.ToLower().Contains("german")))
+            if (audioLanguagesAniDB == null && audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a != null && a.ToLower().Contains("german")))
                 isGerDub = true;
 
-            if (subLanguagesAniDB == null && subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a.ToLower().Contains("german")))
+            if (subLanguagesAniDB == null && subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a != null && a.ToLower().Contains("german")))
                 isGerSub = true;
 
-            if (audioLanguagesAniDB == null && audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a.ToLower().Contains("english")))
+            if (audioLanguagesAniDB == null && audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a != null && a.ToLower().Contains("english")))
                 isGerDub = isEngDub;
 
-            if (subLanguagesAniDB == null && subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a.ToLower().Contains("english")))
+            if (subLanguagesAniDB == null && subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a != null && a.ToLower().Contains("english")))
                 isEngSub = true;
 
             const string sepWin = "\\";
@@ -216,6 +216,8 @@ namespace Renamer.Baine
             {
                 location += "Hentai";
             }
+
+            location += isLinux ? sepLin : sepWin;
 
             if (!isMovie)
                 location += "Series";
