@@ -156,8 +156,8 @@ namespace Renamer.Baine
             {
             }
 
-            List<Language> subLanguagesAniDB = null;
-            List<Language> audioLanguagesAniDB = null;
+            List<Language> subLanguagesAniDB = new List<Language>();
+            List<Language> audioLanguagesAniDB = new List<Language>();
 
             try
             {
@@ -168,12 +168,12 @@ namespace Renamer.Baine
             {
             }
 
+            bool isMovie = anime.GetAnimeTypeEnum() == AnimeType.Movie;
+            bool IsPorn = anime.Restricted > 0;
+            bool isEngDub = false;
+            bool isEngSub = false;
             bool isGerDub = false;
             bool isGerSub = false;
-            bool isMovie = false;
-            bool isLinux = true;
-            bool isEngDub = true;
-            bool isEngSub = true;
 
             if (subLanguagesAniDB != null && audioLanguagesAniDB != null &&
                 subLanguagesAniDB.Count >=1 && audioLanguagesAniDB.Count >= 1)
@@ -187,26 +187,23 @@ namespace Renamer.Baine
                 if (subLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("english")))
                     isEngSub = true;
             }
-            if (audioLanguagesAniDB == null && audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a != null && a.ToLower().Contains("german")))
-                isGerDub = true;
 
-            if (subLanguagesAniDB == null && subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a != null && a.ToLower().Contains("german")))
-                isGerSub = true;
+            if (subLanguagesAniDB.Count == 0 || audioLanguagesAniDB.Count == 0)
+            {
+                if (audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a != null && a.ToLower().Contains("german")))
+                    isGerDub = true;
 
-            if (audioLanguagesAniDB == null && audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a != null && a.ToLower().Contains("english")))
-                isGerDub = isEngDub;
+                if (subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a != null && a.ToLower().Contains("german")))
+                    isGerSub = true;
 
-            if (subLanguagesAniDB == null && subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a != null && a.ToLower().Contains("english")))
-                isEngSub = true;
+                if (audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a != null && a.ToLower().Contains("english")))
+                    isEngDub = true;
 
-            const string sepWin = "\\";
-            const string sepLin = "/";
+                if (subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a != null && a.ToLower().Contains("english")))
+                    isEngSub = true;
+            }
 
-            string location = "";
-            bool IsPorn = anime.Restricted > 0;
-            isLinux = Utils.IsLinux;
-
-            location = isLinux ? "/opt/share/" : "Z:\\";
+            string location = Utils.IsLinux ? "/opt/share/" : "Z:\\";
 
             if (!IsPorn)
             {
@@ -217,14 +214,14 @@ namespace Renamer.Baine
                 location += "Hentai";
             }
 
-            location += isLinux ? sepLin : sepWin;
+            location += Path.DirectorySeparatorChar;
 
             if (!isMovie)
                 location += "Series";
             else
                 location += "Movies";
 
-            location += isLinux ? sepLin : sepWin;
+            location += Path.DirectorySeparatorChar;
 
             while (true)
             {
