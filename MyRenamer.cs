@@ -168,7 +168,6 @@ namespace Renamer.Baine
             {
             }
 
-            bool isMovie = anime.GetAnimeTypeEnum() == AnimeType.Movie;
             bool IsPorn = anime.Restricted > 0;
             bool isEngDub = false;
             bool isEngSub = false;
@@ -213,13 +212,6 @@ namespace Renamer.Baine
             {
                 location += "Hentai";
             }
-
-            location += Path.DirectorySeparatorChar;
-
-            if (!isMovie)
-                location += "Series";
-            else
-                location += "Movies";
 
             location += Path.DirectorySeparatorChar;
 
