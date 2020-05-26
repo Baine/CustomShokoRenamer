@@ -1,15 +1,16 @@
 ﻿using System.Text;
-using Shoko.Commons.Extensions;
-using Shoko.Models.Enums;
-using Shoko.Models.Server;
-using Shoko.Server.Models;
-using Shoko.Server.Renamer;
-using Shoko.Server;
 using System.Linq;
 using System.IO;
-using NLog;
-using Shoko.Server.Repositories;
 using System.Collections.Generic;
+using Shoko.Server.Renamer;
+using Shoko.Server.Models;
+using Shoko.Models.Server;
+using Shoko.Server.Repositories;
+using Shoko.Server;
+using NLog;
+using Shoko.Commons.Extensions;
+using Shoko.Models.Enums;
+using Shoko.Models.MediaInfo;
 
 namespace Renamer.Baine
 {
@@ -18,7 +19,10 @@ namespace Renamer.Baine
     public class MyRenamer : IRenamer
     {
         private static Logger logger = LogManager.GetCurrentClassLogger();
-        public string GetFileName(SVR_VideoLocal_Place video) => GetFileName(video.VideoLocal);
+        public string GetFileName(SVR_VideoLocal_Place video)
+        {
+            return GetFileName(video.VideoLocal);
+        }
 
         private string GetEpNameByPref(AniDB_Episode episode, string type, params string[] langs)
         {
@@ -32,7 +36,7 @@ namespace Renamer.Baine
 
         public static string GetTitleByPref(SVR_AniDB_Anime anime, string type, params string[] langs)
         {
-            var titles = anime.GetTitles();
+            List<AniDB_Anime_Title> titles = anime.GetTitles();
             foreach (string lang in langs)
             {
                 string title = titles.FirstOrDefault(s => s.Language == lang && s.TitleType == type)?.Title;
@@ -142,15 +146,14 @@ namespace Renamer.Baine
             }
             if (anime == null)
                 return (null, "*Error: File is not linked to any Episode");
+            
+            List<TextStream>  textStreamsFile = null;
+            List<AudioStream> audioStreamsFile = null;
 
-            IEnumerable<string> subLanguagesFile = null;
-            IEnumerable<string> audioLanguagesFile = null;
             try
             {
-                subLanguagesFile = video.VideoLocal.Media.Parts.SelectMany(a => a.Streams).Where(a => a != null && a.StreamType == 3)
-                    .Select(a => a.Language).Distinct();
-                audioLanguagesFile = video.VideoLocal.Media.Parts.SelectMany(a => a.Streams).Where(a => a != null && a.StreamType == 2)
-                    .Select(a => a.Language).Distinct();
+                textStreamsFile = video.VideoLocal.Media.TextStreams;
+                audioStreamsFile = video.VideoLocal.Media.AudioStreams;
             }
             catch
             {
@@ -174,8 +177,7 @@ namespace Renamer.Baine
             bool isGerDub = false;
             bool isGerSub = false;
 
-            if (subLanguagesAniDB != null && audioLanguagesAniDB != null &&
-                subLanguagesAniDB.Count >=1 && audioLanguagesAniDB.Count >= 1)
+            if (subLanguagesAniDB?.Count >=1 && audioLanguagesAniDB?.Count >= 1)
             {
                 if (audioLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("german")))
                     isGerDub = true;
@@ -187,18 +189,18 @@ namespace Renamer.Baine
                     isEngSub = true;
             }
 
-            if (subLanguagesAniDB.Count == 0 || audioLanguagesAniDB.Count == 0)
+            if ((subLanguagesAniDB.Count == 0 || audioLanguagesAniDB.Count == 0) && ((audioStreamsFile?.Count() >= 1) || (textStreamsFile?.Count() >= 1)))
             {
-                if (audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a != null && a.ToLower().Contains("german")))
+                if(audioStreamsFile.Any(a => a.LanguageCode?.ToLower() == "deu" ))
                     isGerDub = true;
 
-                if (subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a != null && a.ToLower().Contains("german")))
+                if(textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "deu" ))
                     isGerSub = true;
 
-                if (audioLanguagesFile.Count() >= 1 && audioLanguagesFile.Any(a => a != null && a.ToLower().Contains("english")))
+                if(audioStreamsFile.Any(a => a.LanguageCode?.ToLower() == "eng" ))
                     isEngDub = true;
 
-                if (subLanguagesFile.Count() >= 1 && subLanguagesFile.Any(a => a != null && a.ToLower().Contains("english")))
+                if(textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "eng" ))
                     isEngSub = true;
             }
 
