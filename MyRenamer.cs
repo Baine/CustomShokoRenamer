@@ -5,11 +5,11 @@ using System.Collections.Generic;
 using Shoko.Server.Renamer;
 using Shoko.Server.Models;
 using Shoko.Models.Server;
-using Shoko.Server.Repositories;
-using Shoko.Server;
 using NLog;
+using Shoko.Server.Repositories;
 using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
+using Shoko.Server;
 using Shoko.Models.MediaInfo;
 
 namespace Renamer.Baine
@@ -24,7 +24,7 @@ namespace Renamer.Baine
             return GetFileName(video.VideoLocal);
         }
 
-        private string GetEpNameByPref(AniDB_Episode episode, string type, params string[] langs)
+        private string GetEpNameByPref(AniDB_Episode episode, params string[] langs)
         {
             foreach (string lang in langs)
             {
@@ -54,9 +54,9 @@ namespace Renamer.Baine
                 return "*Error: No such file exists in the FS.";
             }
 
-            List<SVR_AnimeEpisode> episodes = null;
-            AniDB_Episode episode = null;
-            SVR_AniDB_Anime anime = null;
+            List<SVR_AnimeEpisode> episodes;
+            AniDB_Episode episode;
+            SVR_AniDB_Anime anime;
             try
             {
                 episodes = video.GetAnimeEpisodes();
@@ -66,11 +66,6 @@ namespace Renamer.Baine
             catch
             {
                 return "*Error: File is not linked to any episode.";
-            }
-
-            if (episode == null)
-            {
-                return "*Error: Unable to get episode for file";
             }
 
             if (anime == null)
@@ -99,16 +94,15 @@ namespace Renamer.Baine
                 name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}");
             else
             {
-                int epNumbers = episodes.Count;
                 name.Append($" - {prefix}{PadNumberTo(episode.EpisodeNumber, epCount)}-{prefix}{PadNumberTo(episodes[episodes.Count - 1].AniDB_Episode.EpisodeNumber, epCount)}");
             }
 
-            string epTitle = GetEpNameByPref(episode, "official", "de", "en", "x-jat");
+            string epTitle = GetEpNameByPref(episode, "de", "en", "x-jat");
 
             if (episodes.Count > 1)
             {
                 for (int i = 1; i < episodes.Count; i++)
-                    epTitle += " & " + GetEpNameByPref(episodes[i].AniDB_Episode, "official", "de", "en", "x-jat");
+                    epTitle += " & " + GetEpNameByPref(episodes[i].AniDB_Episode, "de", "en", "x-jat");
             }
 
             if (epTitle.Length >100) epTitle = epTitle.Substring(0, 100 - 1) + "...";
@@ -122,7 +116,7 @@ namespace Renamer.Baine
             if (string.IsNullOrEmpty(nameRet))
                 return "*Error: The new filename is empty. Script error?";
 
-            if (File.Exists(Path.Combine(Path.GetDirectoryName(video.GetBestVideoLocalPlace().FilePath), nameRet))) // Has potential null error, im bad pls fix ty 
+            if (File.Exists(Path.Combine(Path.GetDirectoryName(video.GetBestVideoLocalPlace().FilePath)!, nameRet))) // Has potential null error, im bad pls fix ty 
                 return "*Error: A file with this filename already exists";
 
             return nameRet;
@@ -135,7 +129,7 @@ namespace Renamer.Baine
 
         public (ImportFolder dest, string folder) GetDestinationFolder(SVR_VideoLocal_Place video)
         {
-            SVR_AniDB_Anime anime = null;
+            SVR_AniDB_Anime anime;
             try
             {
                  anime = RepoFactory.AniDB_Anime.GetByAnimeID(video.VideoLocal.GetAnimeEpisodes()[0].AniDB_Episode.AnimeID);
@@ -157,44 +151,52 @@ namespace Renamer.Baine
             }
             catch
             {
+                // ignored
             }
 
-            List<Language> subLanguagesAniDB = new List<Language>();
-            List<Language> audioLanguagesAniDB = new List<Language>();
+            List<Language> subLanguagesAniDb = new List<Language>();
+            List<Language> audioLanguagesAniDb = new List<Language>();
 
             try
             {
-                audioLanguagesAniDB = video.VideoLocal.GetAniDBFile().Languages;
-                subLanguagesAniDB = video.VideoLocal.GetAniDBFile().Subtitles;
+                audioLanguagesAniDb = video.VideoLocal.GetAniDBFile().Languages;
+                subLanguagesAniDb = video.VideoLocal.GetAniDBFile().Subtitles;
             }
             catch
             {
+                // ignored
             }
 
-            bool IsPorn = anime.Restricted > 0;
+            bool isPorn = anime.Restricted > 0;
             bool isEngDub = false;
             bool isEngSub = false;
             bool isGerDub = false;
             bool isGerSub = false;
 
-            if (subLanguagesAniDB?.Count >=1 && audioLanguagesAniDB?.Count >= 1)
+            if (subLanguagesAniDb?.Count >=1 && audioLanguagesAniDb?.Count >= 1)
             {
-                if (audioLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("german")))
+                if (audioLanguagesAniDb.Any(a => a.LanguageName.ToLower().Contains("german")))
                     isGerDub = true;
-                if (subLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("german")))
+                if (subLanguagesAniDb.Any(a => a.LanguageName.ToLower().Contains("german")))
                     isGerSub = true;
-                if (audioLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("english")))
+                if (audioLanguagesAniDb.Any(a => a.LanguageName.ToLower().Contains("english")))
                     isEngDub = true;
-                if (subLanguagesAniDB.Any(a => a.LanguageName.ToLower().Contains("english")))
+                if (subLanguagesAniDb.Any(a => a.LanguageName.ToLower().Contains("english")))
                     isEngSub = true;
             }
 
-            if ((subLanguagesAniDB.Count == 0 || audioLanguagesAniDB.Count == 0) && ((audioStreamsFile?.Count() >= 1) || (textStreamsFile?.Count() >= 1)))
+            if (audioLanguagesAniDb != null && (subLanguagesAniDb != null && ((subLanguagesAniDb.Count == 0 || audioLanguagesAniDb.Count == 0) && ((audioStreamsFile?.Count() >= 1) || (textStreamsFile?.Count() >= 1)))))
             {
-                if(audioStreamsFile.Any(a => a.LanguageCode?.ToLower() == "deu" ))
+                if(audioStreamsFile!.Any(a => a.LanguageCode?.ToLower() == "deu" ))
                     isGerDub = true;
 
                 if(textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "deu" ))
+                    isGerSub = true;
+
+                if(audioStreamsFile.Any(a => a.LanguageCode?.ToLower() == "ger" ))
+                    isGerDub = true;
+
+                if(textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "ger" ))
                     isGerSub = true;
 
                 if(audioStreamsFile.Any(a => a.LanguageCode?.ToLower() == "eng" ))
@@ -204,9 +206,9 @@ namespace Renamer.Baine
                     isEngSub = true;
             }
 
-            string location = Utils.IsLinux ? "/opt/share/" : "Z:\\";
+            string location = Utils.IsLinux ? "/anime/" : "Z:\\";
 
-            if (!IsPorn)
+            if (!isPorn)
             {
                 location += "Anime";
             }
@@ -231,7 +233,7 @@ namespace Renamer.Baine
                     break;
                 }
 
-                if (!isGerDub && !isGerSub && (isEngDub || isEngSub))
+                if ((isEngDub || isEngSub))
                 {
                     location += "Other";
                     break;

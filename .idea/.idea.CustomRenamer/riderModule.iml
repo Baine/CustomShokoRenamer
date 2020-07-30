@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="RIDER_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://$MODULE_DIR$/../../../CloudFileSystem/NutzCode.CloudFileSystem" />
+    <content url="file://$MODULE_DIR$/../../../CloudFileSystem/NutzCode.CloudFileSystem.OAuth.Windows.WPF" />
+    <content url="file://$MODULE_DIR$/../../../CloudFileSystem/NutzCode.CloudFileSystem.Plugins.AmazonCloudDrive" />
+    <content url="file://$MODULE_DIR$/../../../CloudFileSystem/NutzCode.CloudFileSystem.Plugins.GoogleDrive" />
+    <content url="file://$MODULE_DIR$/../../../CloudFileSystem/NutzCode.CloudFileSystem.Plugins.LocalFileSystem" />
+    <content url="file://$MODULE_DIR$/../../../CloudFileSystem/NutzCode.CloudFileSystem.Plugins.OneDrive" />
+    <content url="file://$MODULE_DIR$/../../../CloudFileSystem/NutzCode.Libraries.Web" />
+    <content url="file://$MODULE_DIR$/../.." />
+    <content url="file://$MODULE_DIR$/../../../Dependencies/AppGlue.dll" />
+    <content url="file://$MODULE_DIR$/../../../Dependencies/Infralution.Localization.Wpf.dll" />
+    <content url="file://$MODULE_DIR$/../../../Dependencies/MediaInfo" />
+    <content url="file://$MODULE_DIR$/../../../Dependencies/Nancy.Hosting.Self.XML" />
+    <content url="file://$MODULE_DIR$/../../../Dependencies/Nancy.Hosting.Self.dll" />
+    <content url="file://$MODULE_DIR$/../../../Dependencies/x64" />
+    <content url="file://$MODULE_DIR$/../../../Dependencies/x86" />
+    <content url="file://$MODULE_DIR$/../../../MediaInfoWrapper" />
+    <content url="file://$MODULE_DIR$/../../../SharedAssemblyInfo.cs" />
+    <content url="file://$MODULE_DIR$/../../../Shoko.CLI" />
+    <content url="file://$MODULE_DIR$/../../../Shoko.Commons" />
+    <content url="file://$MODULE_DIR$/../../../Shoko.Server" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
