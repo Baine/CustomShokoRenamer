@@ -11,6 +11,7 @@ using Shoko.Commons.Extensions;
 using Shoko.Models.Enums;
 using Shoko.Server;
 using Shoko.Models.MediaInfo;
+using Shoko.Server.Utilities;
 
 namespace Renamer.Baine
 {
