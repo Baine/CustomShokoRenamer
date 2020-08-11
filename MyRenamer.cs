@@ -207,7 +207,7 @@ namespace Renamer.Baine
                     isEngSub = true;
             }
 
-            string location = Utils.IsLinux ? "/anime/" : "Z:\\";
+            string location = Utils.IsLinux ? "/mnt/array/" : "Z:\\";
 
             if (!isPorn)
             {
