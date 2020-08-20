@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using NLog;
 using Shoko.Plugin.Abstractions;
 using Shoko.Plugin.Abstractions.DataModels;
 
@@ -11,6 +12,8 @@ namespace Renamer.Baine
 {
     public class MyRenamer : IRenamer
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         public static string GetTitleByPref(IAnime anime, TitleType type, params TitleLanguage[] langs)
         {
             var titles = (List<AnimeTitle>)anime.Titles;
@@ -162,7 +165,9 @@ namespace Renamer.Baine
             var dest = args.AvailableFolders.FirstOrDefault(a => a.Location == location);
 
             args.DestinationImportFolder = dest;
-            args.DestinationPath = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji);
+            Logger.Info($"DestinationImportFolder: {dest}");
+            args.DestinationPath = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
+            Logger.Info($"DestinationPath: {DestinationPath}");
         }
 
         public void Load()
