@@ -1,10 +1,8 @@
 ﻿using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using NLog;
 using Shoko.Plugin.Abstractions;
 using Shoko.Plugin.Abstractions.DataModels;
 
@@ -12,9 +10,7 @@ namespace Renamer.Baine
 {
     public class MyRenamer : IRenamer
     {
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-
-        public static string GetTitleByPref(IAnime anime, TitleType type, params TitleLanguage[] langs)
+        private string GetTitleByPref(IAnime anime, TitleType type, params TitleLanguage[] langs)
         {
             var titles = (List<AnimeTitle>)anime.Titles;
             foreach (TitleLanguage lang in langs)
@@ -30,10 +26,10 @@ namespace Renamer.Baine
         {
             foreach (TitleLanguage lang in langs)
             {
-                string title = episode.Titles.FirstOrDefault(s => s.Language == lang).Title;
+                string title = episode.Titles.FirstOrDefault(s => s.Language == lang)?.Title;
                 if (title != null) return title;
             }
-            return episode.Titles.FirstOrDefault().Title;
+            return episode.Titles.First().Title;
         }
 
         public void GetFilename(RenameEventArgs args)
@@ -44,10 +40,7 @@ namespace Renamer.Baine
 
             StringBuilder name = new StringBuilder();
 
-            if (!string.IsNullOrWhiteSpace(video.AniDBFileInfo.ReleaseGroup.ShortName))
-                name.Append($"[{video.AniDBFileInfo.ReleaseGroup.ShortName}]");
-
-            name.Append($"{GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji)}");
+            name.Append(GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji));
 
             if (anime.Type != AnimeType.Movie)
             {
@@ -88,13 +81,17 @@ namespace Renamer.Baine
             var anime = args.AnimeInfo.First();
             bool isPorn = anime.Restricted;
 
-            IList<ITextStream> textStreamsFile = null;
-            IList<IAudioStream> audioStreamsFile = null;
+            IReadOnlyList<ITextStream> textStreamsFile = null;
+            IReadOnlyList<IAudioStream> audioStreamsFile = null;
+            IReadOnlyList<TitleLanguage> textLanguagesAniDB = null;
+            IReadOnlyList<TitleLanguage> audioLanguagesAniDB = null;
 
             try
             {
                 textStreamsFile = args.FileInfo.MediaInfo.Subs;
                 audioStreamsFile = args.FileInfo.MediaInfo.Audio;
+                textLanguagesAniDB = args.FileInfo.AniDBFileInfo.MediaInfo.SubLanguages;
+                audioLanguagesAniDB = args.FileInfo.AniDBFileInfo.MediaInfo.AudioLanguages;
             }
             catch
             {
@@ -106,16 +103,16 @@ namespace Renamer.Baine
             bool isGerDub = false;
             bool isGerSub = false;
 
-            if (audioStreamsFile!.Any(a => a.LanguageCode?.ToLower() == "de"))
+            if (audioStreamsFile!.Any(a => a.LanguageCode?.ToLower() == "ger") || audioLanguagesAniDB!.Any(a => a == TitleLanguage.German))
                 isGerDub = true;
 
-            if (textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "de"))
+            if (textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "ger") || textLanguagesAniDB!.Any(a => a == TitleLanguage.German))
                 isGerSub = true;
 
-            if (audioStreamsFile.Any(a => a.LanguageCode?.ToLower() == "en"))
+            if (audioStreamsFile.Any(a => a.LanguageCode?.ToLower() == "eng") || audioLanguagesAniDB!.Any(a => a == TitleLanguage.English))
                 isEngDub = true;
 
-            if (textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "en"))
+            if (textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "eng") || textLanguagesAniDB!.Any(a => a == TitleLanguage.English))
                 isEngSub = true;
 
             ////var subLanguagesAniDB;
@@ -163,11 +160,8 @@ namespace Renamer.Baine
 
 
             var dest = args.AvailableFolders.FirstOrDefault(a => a.Location == location);
-
             args.DestinationImportFolder = dest;
-            Logger.Info($"DestinationImportFolder: {args.DestinationImportFolder}");
             args.DestinationPath = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
-            Logger.Info($"DestinationPath: {args.DestinationPath}");
         }
 
         public void Load()
