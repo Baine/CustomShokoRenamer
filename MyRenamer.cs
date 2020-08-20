@@ -165,9 +165,9 @@ namespace Renamer.Baine
             var dest = args.AvailableFolders.FirstOrDefault(a => a.Location == location);
 
             args.DestinationImportFolder = dest;
-            Logger.Info($"DestinationImportFolder: {dest}");
+            Logger.Info($"DestinationImportFolder: {args.DestinationImportFolder}");
             args.DestinationPath = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
-            Logger.Info($"DestinationPath: {DestinationPath}");
+            Logger.Info($"DestinationPath: {args.DestinationPath}");
         }
 
         public void Load()
