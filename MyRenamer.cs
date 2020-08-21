@@ -103,16 +103,16 @@ namespace Renamer.Baine
             bool isGerDub = false;
             bool isGerSub = false;
 
-            if (audioStreamsFile!.Any(a => a.LanguageCode?.ToLower() == "ger") || audioLanguagesAniDB!.Any(a => a == TitleLanguage.German))
+            if ((audioStreamsFile != null && audioStreamsFile!.Any(a => a!.LanguageCode?.ToLower() == "ger")) || (audioLanguagesAniDB != null && audioLanguagesAniDB!.Any(a => a == TitleLanguage.German)))
                 isGerDub = true;
 
-            if (textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "ger") || textLanguagesAniDB!.Any(a => a == TitleLanguage.German))
+            if ((textStreamsFile != null && textStreamsFile!.Any(t => t!.LanguageCode?.ToLower() == "ger")) || (textLanguagesAniDB != null && textLanguagesAniDB!.Any(t => t == TitleLanguage.German)))
                 isGerSub = true;
 
-            if (audioStreamsFile.Any(a => a.LanguageCode?.ToLower() == "eng") || audioLanguagesAniDB!.Any(a => a == TitleLanguage.English))
-                isEngDub = true;
+            if ((audioStreamsFile != null && audioStreamsFile!.Any(a => a!.LanguageCode?.ToLower() == "eng")) || (audioLanguagesAniDB != null && audioLanguagesAniDB!.Any(a => a == TitleLanguage.English)))
+                isGerDub = true;
 
-            if (textStreamsFile.Any(a => a.LanguageCode?.ToLower() == "eng") || textLanguagesAniDB!.Any(a => a == TitleLanguage.English))
+            if ((textStreamsFile != null && textStreamsFile!.Any(t => t!.LanguageCode?.ToLower() == "eng")) || (textLanguagesAniDB != null && textLanguagesAniDB!.Any(t => t == TitleLanguage.English)))
                 isEngSub = true;
 
             ////var subLanguagesAniDB;
