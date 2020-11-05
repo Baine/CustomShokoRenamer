@@ -205,7 +205,7 @@ namespace Renamer.Baine
                 isGerSub = true;
 
             if ((audioStreamsFile != null && audioStreamsFile!.Any(a => a!.LanguageCode?.ToLower() == "eng")) || (audioLanguagesAniDB != null && audioLanguagesAniDB!.Any(a => a == TitleLanguage.English)))
-                isGerDub = true;
+                isEngDub = true;
 
             if ((textStreamsFile != null && textStreamsFile!.Any(t => t!.LanguageCode?.ToLower() == "eng")) || (textLanguagesAniDB != null && textLanguagesAniDB!.Any(t => t == TitleLanguage.English)))
                 isEngSub = true;
