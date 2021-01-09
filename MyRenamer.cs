@@ -74,11 +74,8 @@ namespace Renamer.Baine
             var video = args.FileInfo;
 
             //make the anime the episode belongs to easier accessible.
-            IAnime anime;
-            if (args.AnimeInfo.First() == null)
-                return;
-            else
-                anime = args.AnimeInfo.First();
+            IAnime anime = args.AnimeInfo?.FirstOrDefault();
+            if (anime == null) return;
 
             //make the episode in question easier accessible. this refers to the episode the file is linked to
             var episode = args.EpisodeInfo.First();
@@ -146,12 +143,8 @@ namespace Renamer.Baine
         public void GetDestination(MoveEventArgs args)
         {
             //get the anime the file in question is linked to
-            IAnime anime;
-
-            if (args.AnimeInfo.First() != null)
-                anime = args.AnimeInfo.First();
-            else
-                return;
+            IAnime anime = args.AnimeInfo?.FirstOrDefault();
+            if (anime == null) return;
 
 
             //get the FileInfo of the file in question
