@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using NLog;
 using Shoko.Plugin.Abstractions;
+using Shoko.Plugin.Abstractions.Attributes;
 using Shoko.Plugin.Abstractions.DataModels;
 
 namespace Renamer.Baine
@@ -12,8 +15,10 @@ namespace Renamer.Baine
     /// Baines custom Renamer
     /// Target Folder Structure is based on available dub/sub languages, as well being restricted to being >18+
     /// </summary>
+    [Renamer("BaineRenamer", Description = "Baines Renamer")]
     public class MyRenamer : IRenamer
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         /// <summary>
         /// Get anime title as specified by preference. Order matters. if nothing found, preferred title is returned
         /// </summary>
@@ -67,18 +72,28 @@ namespace Renamer.Baine
         /// Get the new filename for a specified file
         /// </summary>
         /// <param name="args">Renaming Arguments, e.g. available folders</param>
-        public void GetFilename(RenameEventArgs args)
+        public string GetFilename(RenameEventArgs args)
         {
 
             //make args.FileInfo easier accessible. this refers to the actual file
             var video = args.FileInfo;
 
+            // Get the Anime Info
+            IAnime animeInfo = args.AnimeInfo.FirstOrDefault();
+
+            // Get the preferred title (Overriden, as shown in Desktop)
+            string animeName = animeInfo?.PreferredTitle;
+
             //make the anime the episode belongs to easier accessible.
             IAnime anime = args.AnimeInfo?.FirstOrDefault();
-            if (anime == null) return;
+            if (anime == null)
+            {
+                throw new Exception("Error in renamer: Anime name not found!");
+            }
+            Logger.Info($"Anime Name: {animeName}");
 
             //make the episode in question easier accessible. this refers to the episode the file is linked to
-            var episode = args.EpisodeInfo.First();
+            var episode = args.EpisodeInfo.FirstOrDefault();
 
             //start an empty StringBuilder
             //will be used to store the new filename
@@ -132,7 +147,7 @@ namespace Renamer.Baine
             //after this: name = Showname - S03 - Specialname.mkv
 
             //set the name as the result, replacing invalid path characters (e.g. '/') with similar looking Unicode Characters
-            args.Result = name.ToString().ReplaceInvalidPathCharacters();
+            return name.ToString().ReplaceInvalidPathCharacters();
         }
 
         /// <summary>
@@ -140,11 +155,15 @@ namespace Renamer.Baine
         /// The target path depends on age restriction and available dubs/subs
         /// </summary>
         /// <param name="args">Arguments for the process, contains FileInfo and more</param>
-        public void GetDestination(MoveEventArgs args)
+        public (IImportFolder destination, string subfolder) GetDestination(MoveEventArgs args)
         {
             //get the anime the file in question is linked to
             IAnime anime = args.AnimeInfo?.FirstOrDefault();
-            if (anime == null) return;
+            if (anime == null)
+            {
+                throw new Exception("Error in renamer: Anime name not found!");
+            }
+            Logger.Info($"Anime Name: {anime?.PreferredTitle}");
 
 
             //get the FileInfo of the file in question
@@ -245,10 +264,10 @@ namespace Renamer.Baine
 
             //check if any of the available folders matches the constructed path in location, set it as destination
             var dest = args.AvailableFolders.FirstOrDefault(a => a.Location == location);
-            args.DestinationImportFolder = dest;
-
+            
             //DestinationPath is the name of the final subfolder containing the episode files. Get it by preferrence
-            args.DestinationPath = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
+            var subfolder = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
+            return (dest, subfolder);
         }
 
         //nothing to do on plugin load
