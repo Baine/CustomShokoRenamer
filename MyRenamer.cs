@@ -275,11 +275,6 @@ namespace Renamer.Baine
         {
         }
 
-        //define settings if necessary
-        public void OnSettingsLoaded(IPluginSettings settings)
-        {
-        }
-
         //set the name of the plugin. this will show up in settings-server.json
         public string Name => "BaineRenamer";
     }
