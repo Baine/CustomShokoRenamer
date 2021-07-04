@@ -61,11 +61,11 @@ namespace Renamer.Baine
                 string title = episode.Titles.FirstOrDefault(s => s.Language == lang)?.Title;
 
                 //return the found title if title is not null
-                if (title != null) return title;
+                if (title != null) return title.Substring(0,Math.Min(title.Length, 150));
             }
 
             //no title for any given TitleLanguage found, return the first available.
-            return episode.Titles.First().Title;
+            return episode.Titles.First().Title.Substring(0, Math.Min(episode.Titles.First().Title.Length, 150));
         }
 
         /// <summary>
