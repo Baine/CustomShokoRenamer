@@ -165,7 +165,7 @@ namespace Renamer.Baine
             {
                 //throw new Exception("Error in renamer: Anime name not found!");
                 args.Cancel = true;
-                return null;
+                return (null, null);
             }
             Logger.Info($"Anime Name: {anime?.PreferredTitle}");
 
