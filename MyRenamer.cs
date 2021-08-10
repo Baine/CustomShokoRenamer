@@ -88,7 +88,9 @@ namespace Renamer.Baine
             IAnime anime = args.AnimeInfo?.FirstOrDefault();
             if (anime == null)
             {
-                throw new Exception("Error in renamer: Anime name not found!");
+                // throw new Exception("Error in renamer: Anime name not found!");
+                args.Cancel = true;
+                return null;
             }
             Logger.Info($"Anime Name: {animeName}");
 
@@ -161,7 +163,9 @@ namespace Renamer.Baine
             IAnime anime = args.AnimeInfo?.FirstOrDefault();
             if (anime == null)
             {
-                throw new Exception("Error in renamer: Anime name not found!");
+                //throw new Exception("Error in renamer: Anime name not found!");
+                args.Cancel = true;
+                return null;
             }
             Logger.Info($"Anime Name: {anime?.PreferredTitle}");
 
