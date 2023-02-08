@@ -51,21 +51,28 @@ namespace Renamer.Baine
         /// <param name="episode">IEpisode object representing the episode to search the name for</param>
         /// <param name="langs">Arguments array taking in the TitleLanguages that should be search for.</param>
         /// <returns>string representing the episode name for the first language a name is found for</returns>
-        private string GetEpNameByPref(IEpisode episode, params TitleLanguage[] langs)
+        private string GetEpNameByPref(IEnumerable<IEpisode> episodes, params TitleLanguage[] langs)
         {
-            //iterate over all passed TitleLanguages
-            foreach (TitleLanguage lang in langs)
+            string title = "";
+            foreach (var ep in episodes.ToList())
             {
-                //set the title to the first found title whose language matches with the search one.
-                //if none is found, title is null
-                string title = episode.Titles.FirstOrDefault(s => s.Language == lang)?.Title;
+                //iterate over all passed TitleLanguages
+                foreach (var lang in langs)
+                {
+                    //set the title to the first found title whose language matches with the search one.
+                    //if none is found, title is null
+                    title += ep.Titles.FirstOrDefault(s => s.Language == lang)?.Title;
+                    if (episodes.Count() > 1 && ep != episodes.Last())
+                        title += " / ";
 
-                //return the found title if title is not null
-                if (title != null) return title.Substring(0,Math.Min(title.Length, 150));
+                }
             }
-
-            //no title for any given TitleLanguage found, return the first available.
-            return episode.Titles.First().Title.Substring(0, Math.Min(episode.Titles.First().Title.Length, 150));
+            //return the found title if title is not null
+            if (title != "")
+                return title.Substring(0, Math.Min(title.Length, 150));
+            else
+                //no title for any given TitleLanguage found, return the first available.
+                return episodes.FirstOrDefault().Titles.First().Title.Substring(0, Math.Min(episodes.FirstOrDefault().Titles.First().Title.Length, 150));
         }
 
         /// <summary>
@@ -95,7 +102,7 @@ namespace Renamer.Baine
             Logger.Info($"Anime Name: {animeName}");
 
             //make the episode in question easier accessible. this refers to the episode the file is linked to
-            var episode = args.EpisodeInfo.FirstOrDefault();
+            var episodes = args.EpisodeInfo;//.FirstOrDefault();
 
             //start an empty StringBuilder
             //will be used to store the new filename
@@ -104,44 +111,37 @@ namespace Renamer.Baine
             //add the Anime title as defined by preference
             name.Append(GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji));
             //after this: name = Showname
-
+            
+            var episodeType = episodes.FirstOrDefault().Type;
+                
+            IEnumerable<IEpisode> episodesSorted = episodes.OrderBy(ep => ep.Number).ToList();
+            var isMultiEpisodeFile = episodesSorted.Count() > 1;
+            
             //only add prefixes and episode numbers when dealing with non-Movie files/episodes
             if (anime.Type != AnimeType.Movie)
             {
+
                 //store the epsiode number as string. will be padded, determined by how many
                 //episodes of the same type exist
                 string paddedEpisodeNumber = null;
 
+                string episodeTypeString = null;
                 //perform action based on the episode type
                 //adding prefixes to the episode number for Credits, Specials, Trailers, Parodies ond episodes defined as Other
-                switch (episode.Type)
-                {
-                    case EpisodeType.Episode:
-                        paddedEpisodeNumber = episode.Number.PadZeroes(anime.EpisodeCounts.Episodes);
-                        break;
-                    case EpisodeType.Credits:
-                        paddedEpisodeNumber = "C" + episode.Number.PadZeroes(anime.EpisodeCounts.Credits);
-                        break;
-                    case EpisodeType.Special:
-                        paddedEpisodeNumber = "S" + episode.Number.PadZeroes(anime.EpisodeCounts.Specials);
-                        break;
-                    case EpisodeType.Trailer:
-                        paddedEpisodeNumber = "T" + episode.Number.PadZeroes(anime.EpisodeCounts.Trailers);
-                        break;
-                    case EpisodeType.Parody:
-                        paddedEpisodeNumber = "P" + episode.Number.PadZeroes(anime.EpisodeCounts.Parodies);
-                        break;
-                    case EpisodeType.Other:
-                        paddedEpisodeNumber = "O" + episode.Number.PadZeroes(anime.EpisodeCounts.Others);
-                        break;
-                }
+                episodeTypeString = episodeType.ToString()[..1];
+                paddedEpisodeNumber = isMultiEpisodeFile
+                    ? episodeTypeString+episodes.FirstOrDefault()?.Number.PadZeroes(anime.EpisodeCounts.Episodes) 
+                         + "-" +
+                         episodeTypeString+episodes.Last().Number.PadZeroes(anime.EpisodeCounts.Episodes)
+                    : episodeTypeString+episodesSorted.FirstOrDefault()?.Number.PadZeroes(anime.EpisodeCounts.Episodes);
                 //actually append the padded episode number, storing prefix as well
                 name.Append($" - {paddedEpisodeNumber}");
                 //after this: name = Showname - S03
             }
 
             //get the preferred episode name and add it to the name
-            name.Append($" - {GetEpNameByPref(episode, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji)}");
+            name.Append(
+                $" - {GetEpNameByPref(episodesSorted, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji)}");
             //after this: name = Showname - S03 - SpecialName
 
             //get and append the files extension
