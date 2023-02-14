@@ -95,7 +95,7 @@ namespace Renamer.Baine
             Logger.Info($"Anime Name: {animeName}");
 
             //make the episode in question easier accessible. this refers to the episode the file is linked to
-            var episode = args.EpisodeInfo.FirstOrDefault();
+            var episodes = args.EpisodeInfo.ToList();
 
             //start an empty StringBuilder
             //will be used to store the new filename
@@ -110,38 +110,53 @@ namespace Renamer.Baine
             {
                 //store the epsiode number as string. will be padded, determined by how many
                 //episodes of the same type exist
-                string paddedEpisodeNumber = null;
+                StringBuilder paddedEpisodeNumber = new StringBuilder();
 
-                //perform action based on the episode type
-                //adding prefixes to the episode number for Credits, Specials, Trailers, Parodies ond episodes defined as Other
-                switch (episode.Type)
+                foreach (var ep in episodes)
                 {
-                    case EpisodeType.Episode:
-                        paddedEpisodeNumber = episode.Number.PadZeroes(anime.EpisodeCounts.Episodes);
-                        break;
-                    case EpisodeType.Credits:
-                        paddedEpisodeNumber = "C" + episode.Number.PadZeroes(anime.EpisodeCounts.Credits);
-                        break;
-                    case EpisodeType.Special:
-                        paddedEpisodeNumber = "S" + episode.Number.PadZeroes(anime.EpisodeCounts.Specials);
-                        break;
-                    case EpisodeType.Trailer:
-                        paddedEpisodeNumber = "T" + episode.Number.PadZeroes(anime.EpisodeCounts.Trailers);
-                        break;
-                    case EpisodeType.Parody:
-                        paddedEpisodeNumber = "P" + episode.Number.PadZeroes(anime.EpisodeCounts.Parodies);
-                        break;
-                    case EpisodeType.Other:
-                        paddedEpisodeNumber = "O" + episode.Number.PadZeroes(anime.EpisodeCounts.Others);
-                        break;
+                    //perform action based on the episode type
+                    //adding prefixes to the episode number for Credits, Specials, Trailers, Parodies ond episodes defined as Other
+                    switch (ep.Type)
+                    {
+                        case EpisodeType.Episode:
+                            paddedEpisodeNumber.Append("E");
+                            paddedEpisodeNumber.Append(ep.Number.PadZeroes(anime.EpisodeCounts.Episodes));
+                            break;
+                        case EpisodeType.Credits:
+                            paddedEpisodeNumber.Append("C");
+                            paddedEpisodeNumber.Append(ep.Number.PadZeroes(anime.EpisodeCounts.Credits));
+                            break;
+                        case EpisodeType.Special:
+                            paddedEpisodeNumber.Append("S");
+                            paddedEpisodeNumber.Append(ep.Number.PadZeroes(anime.EpisodeCounts.Specials));
+                            break;
+                        case EpisodeType.Trailer:
+                            paddedEpisodeNumber.Append("T");
+                            paddedEpisodeNumber.Append(ep.Number.PadZeroes(anime.EpisodeCounts.Trailers));
+                            break;
+                        case EpisodeType.Parody:
+                            paddedEpisodeNumber.Append("P");
+                            paddedEpisodeNumber.Append(ep.Number.PadZeroes(anime.EpisodeCounts.Parodies));
+                            break;
+                        case EpisodeType.Other:
+                            paddedEpisodeNumber.Append("O");
+                            paddedEpisodeNumber.Append(ep.Number.PadZeroes(anime.EpisodeCounts.Others));
+                            break;
+                    }
                 }
                 //actually append the padded episode number, storing prefix as well
                 name.Append($" - {paddedEpisodeNumber}");
                 //after this: name = Showname - S03
             }
+            
+            //get the preferred episode names and add them to the name
+            foreach (var ep in episodes)
+            {
+                name.Append($" - {GetEpNameByPref(ep, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji)}");
+                if (!ep.Equals(episodes.Last()))
+                    name.Append("/");
+            }
 
-            //get the preferred episode name and add it to the name
-            name.Append($" - {GetEpNameByPref(episode, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji)}");
             //after this: name = Showname - S03 - SpecialName
 
             //get and append the files extension
