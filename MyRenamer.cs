@@ -148,11 +148,12 @@ namespace Renamer.Baine
                 name.Append($" - {paddedEpisodeNumber}");
                 //after this: name = Showname - S03
             }
-            
+
+            name.Append(" - ");
             //get the preferred episode names and add them to the name
             foreach (var ep in episodes)
             {
-                name.Append($" - {GetEpNameByPref(ep, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji)}");
+                name.Append(GetEpNameByPref(ep, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji));
                 if (!ep.Equals(episodes.Last()))
                     name.Append("/");
             }
