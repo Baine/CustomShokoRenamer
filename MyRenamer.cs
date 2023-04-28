@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using NLog;
 using Shoko.Plugin.Abstractions;
@@ -157,6 +158,8 @@ namespace Renamer.Baine
                 if (!ep.Equals(episodes.Last()))
                     name.Append("/");
             }
+
+            name = new StringBuilder(name.ToString().Substring(0, 150));
 
             //after this: name = Showname - S03 - SpecialName
 
