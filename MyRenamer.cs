@@ -162,11 +162,8 @@ namespace Renamer.Baine
             
             if(name.ToString().Length > 150)
                 name = new StringBuilder(name.ToString().Substring(0, 150));
-
-            name = new StringBuilder(name.ToString().ReplaceInvalidPathCharacters());
-            if (name.ToString().EndsWith("\u2026"))
-                name.Append(".");
             
+
             //after this: name = Showname - S03 - SpecialName
 
             //get and append the files extension
@@ -174,7 +171,7 @@ namespace Renamer.Baine
             //after this: name = Showname - S03 - Specialname.mkv
 
             //set the name as the result, replacing invalid path characters (e.g. '/') with similar looking Unicode Characters
-            return name.ToString();
+            return name.ToString().ReplaceInvalidPathCharacters();
         }
 
         /// <summary>
