@@ -37,10 +37,10 @@ namespace Renamer.Baine
                 text = "․" + text.Substring(1, text.Length - 1);
             }
 
-            if (text.EndsWith(".", StringComparison.Ordinal))
-            {
-                text = text.Substring(0, text.Length - 1) + "․";
-            }
+            //if (text.EndsWith(".", StringComparison.Ordinal))
+            //{
+            //    text = text.Substring(0, text.Length - 1) + "․";
+            //}
 
             return text.Trim();
         }
