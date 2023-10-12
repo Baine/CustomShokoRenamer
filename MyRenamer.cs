@@ -46,6 +46,36 @@ namespace Renamer.Baine
             //no title found for the preferred languages, return the preferred title as defined by shoko
             return anime.PreferredTitle;
         }
+        public static string ownReplaceInvalidPathCharacters(this string path)
+        {
+            string text = path.Replace("*", "★");
+            text = text.Replace("|", "¦");
+            text = text.Replace("\\", "⧹");
+            text = text.Replace("/", "⁄");
+            text = text.Replace(":", "։");
+            text = text.Replace("\"", "″");
+            text = text.Replace(">", "›");
+            text = text.Replace("<", "‹");
+            text = text.Replace("?", "？");
+            text = text.Replace("...", "…");
+            if (text.StartsWith(".", StringComparison.Ordinal))
+            {
+                text = "․" + text.Substring(1, text.Length - 1);
+            }
+
+            //if (text.EndsWith(".", StringComparison.Ordinal))
+            //{
+            //    text = text.Substring(0, text.Length - 1) + "․";
+            //}
+
+            return text.Trim();
+        }
+
+        public static string PadZeroes(this int num, int total)
+        {
+            int length = total.ToString().Length;
+            return num.ToString().PadLeft(length, '0');
+        }
 
         /// <summary>
         /// Get Episode Name/Title as specified by preference. if nothing found, the first available is returned
@@ -161,7 +191,7 @@ namespace Renamer.Baine
             }
             
             if(name.ToString().Length > 150)
-                name = new StringBuilder(name.ToString().ReplaceInvalidPathCharacters().Substring(0, 150));
+                name = new StringBuilder(name.ToString().ownReplaceInvalidPathCharacters().Substring(0, 150));
             
 
             //if (name.ToString().EndsWith("\u2026"))
