@@ -20,31 +20,6 @@ namespace Renamer.Baine
     [Renamer("BaineRenamer", Description = "Baines Renamer")]
     public class MyRenamer : IRenamer
     {
-        private string ownReplaceInvalidPathCharacters(string path)
-        {
-            string text = path.Replace("*", "★");
-            text = text.Replace("|", "¦");
-            text = text.Replace("\\", "⧹");
-            text = text.Replace("/", "⁄");
-            text = text.Replace(":", "։");
-            text = text.Replace("\"", "″");
-            text = text.Replace(">", "›");
-            text = text.Replace("<", "‹");
-            text = text.Replace("?", "？");
-            //text = text.Replace("...", "…");
-            if (text.StartsWith(".", StringComparison.Ordinal))
-            {
-                text = "․" + text.Substring(1, text.Length - 1);
-            }
-
-            //if (text.EndsWith(".", StringComparison.Ordinal))
-            //{
-            //    text = text.Substring(0, text.Length - 1) + "․";
-            //}
-
-            return text.Trim();
-        }
-
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         /// <summary>
         /// Get anime title as specified by preference. Order matters. if nothing found, preferred title is returned
@@ -189,7 +164,7 @@ namespace Renamer.Baine
             if(name.ToString().Length > 150)
                 name = new StringBuilder(name.ToString().Substring(0, 150));
             
-            name = new StringBuilder(ownReplaceInvalidPathCharacters(name.ToString()));
+            name = new StringBuilder(name.ToString().ReplaceInvalidPathCharacters());
 
             //if (name.ToString().EndsWith("\u2026"))
             //    name.Append(".");
@@ -197,7 +172,10 @@ namespace Renamer.Baine
             //after this: name = Showname - S03 - SpecialName
 
             //get and append the files extension
-            name.Append($"{Path.GetExtension(video.Filename)}");
+            if (name.ToString().EndsWith("\u2026"))
+                name.Append("."+$"{Path.GetExtension(video.Filename)}");
+            else
+                name.Append($"{Path.GetExtension(video.Filename)}");
             //after this: name = Showname - S03 - Specialname.mkv
 
             //set the name as the result, replacing invalid path characters (e.g. '/') with similar looking Unicode Characters
@@ -320,9 +298,9 @@ namespace Renamer.Baine
 
             //check if any of the available folders matches the constructed path in location, set it as destination
             var dest = args.AvailableFolders.FirstOrDefault(a => a.Location == location);
-            
+
             //DestinationPath is the name of the final subfolder containing the episode files. Get it by preferrence
-            var subfolder = ownReplaceInvalidPathCharacters(GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji));
+            var subfolder = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
             return (dest, subfolder);
         }
 
