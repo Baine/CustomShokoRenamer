@@ -20,6 +20,31 @@ namespace Renamer.Baine
     [Renamer("BaineRenamer", Description = "Baines Renamer")]
     public class MyRenamer : IRenamer
     {
+        private string ownReplaceInvalidPathCharacters(string path)
+        {
+            string text = path.Replace("*", "★");
+            text = text.Replace("|", "¦");
+            text = text.Replace("\\", "⧹");
+            text = text.Replace("/", "⁄");
+            text = text.Replace(":", "։");
+            text = text.Replace("\"", "″");
+            text = text.Replace(">", "›");
+            text = text.Replace("<", "‹");
+            text = text.Replace("?", "？");
+            //text = text.Replace("...", "…");
+            if (text.StartsWith(".", StringComparison.Ordinal))
+            {
+                text = "․" + text.Substring(1, text.Length - 1);
+            }
+
+            if (text.EndsWith(".", StringComparison.Ordinal))
+            {
+                text = text.Substring(0, text.Length - 1) + "․";
+            }
+
+            return text.Trim();
+        }
+
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         /// <summary>
         /// Get anime title as specified by preference. Order matters. if nothing found, preferred title is returned
@@ -160,13 +185,13 @@ namespace Renamer.Baine
                     name.Append("/");
             }
 
-            name = new StringBuilder(name.ToString().ReplaceInvalidPathCharacters());
+            name = new StringBuilder(ownReplaceInvalidPathCharacters(name.ToString()));
 
             if(name.ToString().Length > 150)
                 name = new StringBuilder(name.ToString().Substring(0, 150));
 
-            //if (name.ToString().EndsWith("\u2026"))
-            //    name.Append(".");
+            if (name.ToString().EndsWith("\u2026"))
+                name.Append(".");
 
             //after this: name = Showname - S03 - SpecialName
 
@@ -296,7 +321,7 @@ namespace Renamer.Baine
             var dest = args.AvailableFolders.FirstOrDefault(a => a.Location == location);
             
             //DestinationPath is the name of the final subfolder containing the episode files. Get it by preferrence
-            var subfolder = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
+            var subfolder = ownReplaceInvalidPathCharacters(GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji));
             return (dest, subfolder);
         }
 
