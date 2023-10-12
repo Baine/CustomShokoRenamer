@@ -164,7 +164,7 @@ namespace Renamer.Baine
                 name = new StringBuilder(name.ToString().Substring(0, 150));
 
             if (name.ToString().EndsWith("\u2026"))
-                name.Append(".");
+                name.Append("..");
 
             //after this: name = Showname - S03 - SpecialName
 
