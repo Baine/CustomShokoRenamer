@@ -246,16 +246,20 @@ namespace Renamer.Baine
             //check if anidb provides us with information about the audiostreams. if so, check if the language of any of them matches the desired one.
             //if any of the above is true, set the respective bool to true
             //the same process applies to both dub and sub
-            if ((audioStreamsFile != null && audioStreamsFile!.Any(a => a!.LanguageCode?.ToLower() == "ger")) || (audioLanguagesAniDB != null && audioLanguagesAniDB!.Any(a => a.LanguageCode == TitleLanguage.German.ToString())))
+            if (audioStreamsFile.Any(a => a!.LanguageCode?.Equals("ger", StringComparison.InvariantCultureIgnoreCase) ?? false)
+                || audioLanguagesAniDB.Any(a => a?.LanguageCode == TitleLanguage.German.ToString()))
                 isGerDub = true;
 
-            if ((textStreamsFile != null && textStreamsFile!.Any(t => t!.LanguageCode?.ToLower() == "ger")) || (textLanguagesAniDB != null && textLanguagesAniDB!.Any(t => t.LanguageCode ==  TitleLanguage.German.ToString())))
+            if (textStreamsFile.Any(t => t!.LanguageCode?.Equals("ger", StringComparison.InvariantCultureIgnoreCase) ?? false) 
+                || textLanguagesAniDB!.Any(t => t?.LanguageCode ==  TitleLanguage.German.ToString()))
                 isGerSub = true;
 
-            if ((audioStreamsFile != null && audioStreamsFile!.Any(a => a!.LanguageCode?.ToLower() == "eng")) || (audioLanguagesAniDB != null && audioLanguagesAniDB!.Any(a => a.LanguageCode == TitleLanguage.English.ToString())))
+            if (audioStreamsFile.Any(a => a!.LanguageCode?.Equals("eng", StringComparison.InvariantCultureIgnoreCase) ?? false)
+                || audioLanguagesAniDB.Any(a => a?.LanguageCode == TitleLanguage.English.ToString()))
                 isEngDub = true;
 
-            if ((textStreamsFile != null && textStreamsFile!.Any(t => t!.LanguageCode?.ToLower() == "eng")) || (textLanguagesAniDB != null && textLanguagesAniDB!.Any(t => t.LanguageCode == TitleLanguage.English.ToString())))
+            if (textStreamsFile.Any(t => t!.LanguageCode?.Equals("eng", StringComparison.InvariantCultureIgnoreCase) ?? false)
+                || textLanguagesAniDB!.Any(t => t?.LanguageCode == TitleLanguage.English.ToString()))
                 isEngSub = true;
 
             //define location based on the OS shokoserver is currently running on
