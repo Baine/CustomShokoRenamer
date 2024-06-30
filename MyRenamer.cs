@@ -18,10 +18,19 @@ namespace Renamer.Baine
     /// Baines custom Renamer
     /// Target Folder Structure is based on available dub/sub languages, as well being restricted to being >18+
     /// </summary>
-    [Renamer("BaineRenamer", Description = "Baines Renamer")]
+    /// [Renamer("BaineRenamer", Description = "Baines Renamer")]
     public class MyRenamer : IRenamer
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
+        //set the name of the plugin. this will show up in settings-server.json
+        public string Name => "BaineRenamer";
+
+        public string Description => "Baines Renamer";
+
+        public bool SupportsMoving => true;
+
+        public bool SupportsRenaming => true;
 
         /// <summary>
         /// Get anime title as specified by preference. Order matters. if nothing found, preferred title is returned
@@ -76,7 +85,7 @@ namespace Renamer.Baine
         /// Get the new filename for a specified file
         /// </summary>
         /// <param name="args">Renaming Arguments, e.g. available folders</param>
-        public string GetFilename(RenameEventArgs args)
+        public string GetFilename(MoveRenameEventArgs args)
         {
 
             //make args.FileInfo easier accessible. this refers to the actual file
@@ -124,27 +133,27 @@ namespace Renamer.Baine
                     {
                         case EpisodeType.Episode:
                             paddedEpisodeNumber.Append("E");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Episodes));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Episode]));
                             break;
                         case EpisodeType.Credits:
                             paddedEpisodeNumber.Append("C");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Credits));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Credits]));
                             break;
                         case EpisodeType.Special:
                             paddedEpisodeNumber.Append("S");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Specials));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Special]));
                             break;
                         case EpisodeType.Trailer:
                             paddedEpisodeNumber.Append("T");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Trailers));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Trailer]));
                             break;
                         case EpisodeType.Parody:
                             paddedEpisodeNumber.Append("P");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Parodies));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Parody]));
                             break;
                         case EpisodeType.Other:
                             paddedEpisodeNumber.Append("O");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Others));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Other]));
                             break;
                     }
                 }
@@ -184,20 +193,24 @@ namespace Renamer.Baine
             return name.ToString();
         }
 
+
         /// <summary>
         /// Get the new path for a specified file.
         /// The target path depends on age restriction and available dubs/subs
         /// </summary>
         /// <param name="args">Arguments for the process, contains FileInfo and more</param>
-        public (IImportFolder destination, string subfolder) GetDestination(MoveEventArgs args)
+        public MoveRenameResult GetNewPath(MoveRenameEventArgs args)
         {
+            MoveRenameResult result = new MoveRenameResult();
+
             //get the anime the file in question is linked to
             IAnime anime = args.AnimeInfo?.FirstOrDefault();
             if (anime == null)
             {
                 //throw new Exception("Error in renamer: Anime name not found!");
                 args.Cancel = true;
-                return (null, null);
+                result.Error.Message = "no valid Anime found for file";
+                return result;
             }
             Logger.Info($"Anime Name: {anime?.PreferredTitle}");
 
@@ -303,20 +316,18 @@ namespace Renamer.Baine
             location += Path.DirectorySeparatorChar;
 
             //check if any of the available folders matches the constructed path in location, set it as destination
-            var dest = args.AvailableFolders.FirstOrDefault(a => a.Path == location);
-
+            result.DestinationImportFolder = args.AvailableFolders.FirstOrDefault(a => a.Path == location);
             //DestinationPath is the name of the final subfolder containing the episode files. Get it by preferrence
-            var subfolder = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
-            return (dest, subfolder);
+            result.Path = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
+            result.FileName = GetFilename(args);
+
+            return result;
         }
 
         //nothing to do on plugin load
         public void Load()
         {
         }
-
-        //set the name of the plugin. this will show up in settings-server.json
-        public string Name => "BaineRenamer";
     }
 }
                                                                                                       
