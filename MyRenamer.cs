@@ -39,7 +39,7 @@ namespace Renamer.Baine
         /// <param name="type">TitleType, eg. TitleType.Official or TitleType.Short </param>
         /// <param name="langs">Arguments Array taking in the TitleLanguages that should be search for.</param>
         /// <returns>string representing the Anime Title for the first language a title is found for</returns>
-        private string GetTitleByPref(IAnime anime, TitleType type, params TitleLanguage[] langs)
+        private string GetTitleByPref(ISeries anime, TitleType type, params TitleLanguage[] langs)
         {
             //get all titles
             var titles = (List<AnimeTitle>)anime.Titles;
@@ -92,13 +92,13 @@ namespace Renamer.Baine
             var video = args.FileInfo;
 
             // Get the Anime Info
-            IAnime animeInfo = args.AnimeInfo.FirstOrDefault();
+            ISeries animeInfo = args.AnimeInfo.FirstOrDefault();
 
             // Get the preferred title (Overriden, as shown in Desktop)
             string animeName = animeInfo?.PreferredTitle;
 
             //make the anime the episode belongs to easier accessible.
-            IAnime anime = args.AnimeInfo?.FirstOrDefault();
+            ISeries anime = args.AnimeInfo?.FirstOrDefault();
             if (anime == null)
             {
                 // throw new Exception("Error in renamer: Anime name not found!");
@@ -133,27 +133,27 @@ namespace Renamer.Baine
                     {
                         case EpisodeType.Episode:
                             paddedEpisodeNumber.Append("E");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Episode]));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Episodes));
                             break;
                         case EpisodeType.Credits:
                             paddedEpisodeNumber.Append("C");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Credits]));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Credits));
                             break;
                         case EpisodeType.Special:
                             paddedEpisodeNumber.Append("S");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Special]));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Specials));
                             break;
                         case EpisodeType.Trailer:
                             paddedEpisodeNumber.Append("T");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Trailer]));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Trailers));
                             break;
                         case EpisodeType.Parody:
                             paddedEpisodeNumber.Append("P");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Parody]));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Parodies));
                             break;
                         case EpisodeType.Other:
                             paddedEpisodeNumber.Append("O");
-                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCountDict[EpisodeType.Other]));
+                            paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Others));
                             break;
                     }
                 }
