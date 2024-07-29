@@ -18,7 +18,7 @@ namespace Renamer.Baine
     /// Baines custom Renamer
     /// Target Folder Structure is based on available dub/sub languages, as well being restricted to being >18+
     /// </summary>
-    /// [Renamer("BaineRenamer", Description = "Baines Renamer")]
+    [RenamerID("BaineRenamer")]
     public class MyRenamer : IRenamer
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
@@ -85,7 +85,7 @@ namespace Renamer.Baine
         /// Get the new filename for a specified file
         /// </summary>
         /// <param name="args">Renaming Arguments, e.g. available folders</param>
-        public string GetFilename(MoveRenameEventArgs args)
+        public string GetFilename(RelocationEventArgs args)
         {
 
             //make args.FileInfo easier accessible. this refers to the actual file
@@ -199,12 +199,12 @@ namespace Renamer.Baine
         /// The target path depends on age restriction and available dubs/subs
         /// </summary>
         /// <param name="args">Arguments for the process, contains FileInfo and more</param>
-        public MoveRenameResult GetNewPath(MoveRenameEventArgs args)
+        public RelocationResult GetNewPath(RelocationEventArgs args)
         {
-            MoveRenameResult result = new MoveRenameResult();
+            RelocationResult result = new RelocationResult();
 
             //get the anime the file in question is linked to
-            IAnime anime = args.AnimeInfo?.FirstOrDefault();
+            ISeries anime = args.AnimeInfo?.FirstOrDefault();
             if (anime == null)
             {
                 //throw new Exception("Error in renamer: Anime name not found!");
