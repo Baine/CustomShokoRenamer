@@ -2,15 +2,14 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using NLog;
 using Shoko.Plugin.Abstractions;
 using Shoko.Plugin.Abstractions.Attributes;
 using Shoko.Plugin.Abstractions.DataModels;
-using Shoko.Plugin.Abstractions.Extensions;
+using Shoko.Plugin.Abstractions.DataModels.Shoko;
+using Shoko.Plugin.Abstractions.Events;
 
 namespace Renamer.Baine
 {
@@ -39,7 +38,7 @@ namespace Renamer.Baine
         /// <param name="type">TitleType, eg. TitleType.Official or TitleType.Short </param>
         /// <param name="langs">Arguments Array taking in the TitleLanguages that should be search for.</param>
         /// <returns>string representing the Anime Title for the first language a title is found for</returns>
-        private string GetTitleByPref(ISeries anime, TitleType type, params TitleLanguage[] langs)
+        private string GetTitleByPref(IWithTitles anime, TitleType type, params TitleLanguage[] langs)
         {
             //get all titles
             var titles = (List<AnimeTitle>)anime.Titles;
@@ -64,7 +63,7 @@ namespace Renamer.Baine
         /// <param name="episode">IEpisode object representing the episode to search the name for</param>
         /// <param name="langs">Arguments array taking in the TitleLanguages that should be search for.</param>
         /// <returns>string representing the episode name for the first language a name is found for</returns>
-        private string GetEpNameByPref(IEpisode episode, params TitleLanguage[] langs)
+        private string GetEpNameByPref(IShokoEpisode episode, params TitleLanguage[] langs)
         {
             //iterate over all passed TitleLanguages
             foreach (TitleLanguage lang in langs)
@@ -89,16 +88,16 @@ namespace Renamer.Baine
         {
 
             //make args.FileInfo easier accessible. this refers to the actual file
-            var video = args.FileInfo;
+            var video = args.File;
 
             // Get the Anime Info
-            ISeries animeInfo = args.AnimeInfo.FirstOrDefault();
+            var animeInfo = args.Series.FirstOrDefault();
 
             // Get the preferred title (Overriden, as shown in Desktop)
             string animeName = animeInfo?.PreferredTitle;
 
             //make the anime the episode belongs to easier accessible.
-            ISeries anime = args.AnimeInfo?.FirstOrDefault();
+            ISeries anime = args.Series?.FirstOrDefault();
             if (anime == null)
             {
                 // throw new Exception("Error in renamer: Anime name not found!");
@@ -108,7 +107,7 @@ namespace Renamer.Baine
             Logger.Info($"Anime Name: {animeName}");
 
             //make the episode in question easier accessible. this refers to the episode the file is linked to
-            var episodes = args.EpisodeInfo.ToList();
+            var episodes = args.Episodes.ToList();
 
             //start an empty StringBuilder
             //will be used to store the new filename
@@ -204,7 +203,7 @@ namespace Renamer.Baine
             RelocationResult result = new RelocationResult();
 
             //get the anime the file in question is linked to
-            ISeries anime = args.AnimeInfo?.FirstOrDefault();
+            ISeries anime = args.Series?.FirstOrDefault();
             if (anime == null)
             {
                 //throw new Exception("Error in renamer: Anime name not found!");
@@ -214,111 +213,124 @@ namespace Renamer.Baine
             }
             Logger.Info($"Anime Name: {anime?.PreferredTitle}");
 
-
-            //get the FileInfo of the file in question
-            var video = args.FileInfo;
+            string location;
 
             //check if the anime in question is restricted to 18+
             bool isPorn = anime.Restricted;
+            //get the FileInfo of the file in question
+            var video = args.File;
 
-            //instantiate lists for various stream information
-            //these include Dub/Sub-Languages as readable by mediainfo
-            //as well as Dub/Sub-Languages that AniDB provides for the file, if it is known
-            IReadOnlyList<ITextStream> textStreamsFile = null;
-            IReadOnlyList<IAudioStream> audioStreamsFile = null;
-            IReadOnlyList<ITextStream> textLanguagesAniDB = null;
-            IReadOnlyList<IAudioStream> audioLanguagesAniDB = null;
-
-            try
+            //keep file in its current location, only regenerate the filename if needed
+            //this is needed if it's a presorted file, as they shouldn't get moved out to _manual again
+            if (video.Path.Contains(Path.DirectorySeparatorChar + "GerDub" + Path.DirectorySeparatorChar)
+                || video.Path.Contains(Path.DirectorySeparatorChar + "GerSub" + Path.DirectorySeparatorChar)
+                || video.Path.Contains(Path.DirectorySeparatorChar + "Other" + Path.DirectorySeparatorChar))
             {
-                //sub streams as provided by mediainfo
-                textStreamsFile = video.VideoInfo?.MediaInfo.Subs;
-
-                //dub streams as provided by mediainfo
-                audioStreamsFile = video.VideoInfo?.MediaInfo.Audio;
-
-                //sub languages as provided by anidb
-                textLanguagesAniDB = video.VideoInfo?.MediaInfo.Subs;
-
-                //sub languages as provided by anidb
-                audioLanguagesAniDB = video.VideoInfo?.MediaInfo.Audio;
-            }
-            catch
-            {
-                // ignored
+                result.SkipMove = true;
             }
 
-            //define various bools
-            //those will only get set to true if the respective stream in the relevant language is found
-            bool isEngDub = false;
-            bool isEngSub = false;
-            bool isGerDub = false;
-            bool isGerSub = false;
-
-            //check if mediainfo provides us with audiostreams. if so, check if the language of any of them matches the desired one.
-            //check if anidb provides us with information about the audiostreams. if so, check if the language of any of them matches the desired one.
-            //if any of the above is true, set the respective bool to true
-            //the same process applies to both dub and sub
-            if (audioStreamsFile.Any(a => a!.LanguageCode?.Equals("ger", StringComparison.InvariantCultureIgnoreCase) ?? false)
-                || audioLanguagesAniDB.Any(a => a?.LanguageCode == TitleLanguage.German.ToString()))
-                isGerDub = true;
-
-            if (textStreamsFile.Any(t => t!.LanguageCode?.Equals("ger", StringComparison.InvariantCultureIgnoreCase) ?? false) 
-                || textLanguagesAniDB!.Any(t => t?.LanguageCode ==  TitleLanguage.German.ToString()))
-                isGerSub = true;
-
-            if (audioStreamsFile.Any(a => a!.LanguageCode?.Equals("eng", StringComparison.InvariantCultureIgnoreCase) ?? false)
-                || audioLanguagesAniDB.Any(a => a?.LanguageCode == TitleLanguage.English.ToString()))
-                isEngDub = true;
-
-            if (textStreamsFile.Any(t => t!.LanguageCode?.Equals("eng", StringComparison.InvariantCultureIgnoreCase) ?? false)
-                || textLanguagesAniDB!.Any(t => t?.LanguageCode == TitleLanguage.English.ToString()))
-                isEngSub = true;
-
-            //define location based on the OS shokoserver is currently running on
-            var location = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "/mnt/array/" : "Z:\\";
-
-            //define the first subfolder depending on age restriction
-            location += isPorn ? "Hentai" : "Anime";
-            
-            //add a directory separator char. this automatically switches between the proper char for the current OS
-            location += Path.DirectorySeparatorChar;
-
-            //a while true loop. be carefull here, since this would always require a default break; otherwise this ever ends
-            //used to evaluate the previously set bools and add the 2nd subfolder depending on available dubs/subs
-            //if no choice can be made, a fallback folder is used for manual processing
-            while (true)
+            if (!result.SkipMove)
             {
-                if (isGerDub)
+                //instantiate lists for various stream information
+                //these include Dub/Sub-Languages as readable by mediainfo
+                //as well as Dub/Sub-Languages that AniDB provides for the file, if it is known
+                IReadOnlyList<ITextStream> textStreamsFile = null;
+                IReadOnlyList<IAudioStream> audioStreamsFile = null;
+                IReadOnlyList<ITextStream> textLanguagesAniDB = null;
+                IReadOnlyList<IAudioStream> audioLanguagesAniDB = null;
+
+                try
                 {
-                    location += "GerDub";
-                    break;
+                    //sub streams as provided by mediainfo
+                    textStreamsFile = video.Video?.MediaInfo.Subs;
+
+                    //dub streams as provided by mediainfo
+                    audioStreamsFile = video.Video?.MediaInfo.Audio;
+
+                    //sub languages as provided by anidb
+                    textLanguagesAniDB = video.Video?.MediaInfo.Subs;
+
+                    //sub languages as provided by anidb
+                    audioLanguagesAniDB = video.Video?.MediaInfo.Audio;
+                }
+                catch
+                {
+                    // ignored
                 }
 
-                if (isGerSub)
+                //define various bools
+                //those will only get set to true if the respective stream in the relevant language is found
+                bool isEngDub = false;
+                bool isEngSub = false;
+                bool isGerDub = false;
+                bool isGerSub = false;
+
+                //check if mediainfo provides us with audiostreams. if so, check if the language of any of them matches the desired one.
+                //check if anidb provides us with information about the audiostreams. if so, check if the language of any of them matches the desired one.
+                //if any of the above is true, set the respective bool to true
+                //the same process applies to both dub and sub
+                if (audioStreamsFile.Any(a => a!.LanguageCode?.Equals("ger", StringComparison.InvariantCultureIgnoreCase) ?? false)
+                    || audioLanguagesAniDB.Any(a => a?.LanguageCode == TitleLanguage.German.ToString()))
+                    isGerDub = true;
+
+                if (textStreamsFile.Any(t => t!.LanguageCode?.Equals("ger", StringComparison.InvariantCultureIgnoreCase) ?? false)
+                    || textLanguagesAniDB!.Any(t => t?.LanguageCode == TitleLanguage.German.ToString()))
+                    isGerSub = true;
+
+                if (audioStreamsFile.Any(a => a!.LanguageCode?.Equals("eng", StringComparison.InvariantCultureIgnoreCase) ?? false)
+                    || audioLanguagesAniDB.Any(a => a?.LanguageCode == TitleLanguage.English.ToString()))
+                    isEngDub = true;
+
+                if (textStreamsFile.Any(t => t!.LanguageCode?.Equals("eng", StringComparison.InvariantCultureIgnoreCase) ?? false)
+                    || textLanguagesAniDB!.Any(t => t?.LanguageCode == TitleLanguage.English.ToString()))
+                    isEngSub = true;
+
+                //define location based on the OS shokoserver is currently running on
+                location = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "/mnt/array/" : "Z:\\";
+
+                //define the first subfolder depending on age restriction
+                location += isPorn ? "Hentai" : "Anime";
+
+                //add a directory separator char. this automatically switches between the proper char for the current OS
+                location += Path.DirectorySeparatorChar;
+
+                //a while true loop. be carefull here, since this would always require a default break; otherwise this ever ends
+                //used to evaluate the previously set bools and add the 2nd subfolder depending on available dubs/subs
+                //if no choice can be made, a fallback folder is used for manual processing
+                while (true)
                 {
-                    location += "GerSub";
+                    if (isGerDub)
+                    {
+                        location += "GerDub";
+                        break;
+                    }
+
+                    if (isGerSub)
+                    {
+                        location += "GerSub";
+                        break;
+                    }
+
+                    if ((isEngDub || isEngSub))
+                    {
+                        location += "Other";
+                        break;
+                    }
+
+                    location += "_manual";
                     break;
+
                 }
 
-                if ((isEngDub || isEngSub))
-                {
-                    location += "Other";
-                    break;
-                }
+                //add a trailing directory separator char, since the folders in shokoserver are currently forcibly set up with one as well
+                location += Path.DirectorySeparatorChar;
 
-                location += "_manual";
-                break;
+                //check if any of the available folders matches the constructed path in location, set it as destination
+                result.DestinationImportFolder = args.AvailableFolders.FirstOrDefault(a => a.Path == location);
+                //DestinationPath is the name of the final subfolder containing the episode files. Get it by preferrence
+                result.Path = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
 
             }
-
-            //add a trailing directory separator char, since the folders in shokoserver are currently forcibly set up with one as well
-            location += Path.DirectorySeparatorChar;
-
-            //check if any of the available folders matches the constructed path in location, set it as destination
-            result.DestinationImportFolder = args.AvailableFolders.FirstOrDefault(a => a.Path == location);
-            //DestinationPath is the name of the final subfolder containing the episode files. Get it by preferrence
-            result.Path = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
             result.FileName = GetFilename(args);
 
             return result;
