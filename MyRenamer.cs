@@ -97,7 +97,7 @@ namespace Renamer.Baine
             string animeName = animeInfo?.PreferredTitle;
 
             //make the anime the episode belongs to easier accessible.
-            ISeries anime = args.Series?.FirstOrDefault();
+            ISeries anime = args.Series.FirstOrDefault();
             if (anime == null)
             {
                 // throw new Exception("Error in renamer: Anime name not found!");
@@ -125,7 +125,6 @@ namespace Renamer.Baine
                 StringBuilder paddedEpisodeNumber = new StringBuilder();
 
                 foreach (var ep in episodes)
-                {
                     //perform action based on the episode type
                     //adding prefixes to the episode number for Credits, Specials, Trailers, Parodies ond episodes defined as Other
                     switch (ep.Type)
@@ -155,7 +154,7 @@ namespace Renamer.Baine
                             paddedEpisodeNumber.Append(ep.EpisodeNumber.PadZeroes(anime.EpisodeCounts.Others));
                             break;
                     }
-                }
+
                 //actually append the padded episode number, storing prefix as well
                 name.Append($" - {paddedEpisodeNumber}");
                 //after this: name = Showname - S03
@@ -203,15 +202,14 @@ namespace Renamer.Baine
             RelocationResult result = new RelocationResult();
 
             //get the anime the file in question is linked to
-            ISeries anime = args.Series?.FirstOrDefault();
+            ISeries anime = args.Series.FirstOrDefault();
             if (anime == null)
             {
                 //throw new Exception("Error in renamer: Anime name not found!");
                 args.Cancel = true;
-                result.Error.Message = "no valid Anime found for file";
-                return result;
+                return new RelocationResult() { Error = new("no valid Anime found for file") };
             }
-            Logger.Info($"Anime Name: {anime?.PreferredTitle}");
+            Logger.Info($"Anime Name: {anime.PreferredTitle}");
 
             string location;
 
@@ -236,22 +234,22 @@ namespace Renamer.Baine
                 //as well as Dub/Sub-Languages that AniDB provides for the file, if it is known
                 IReadOnlyList<ITextStream> textStreamsFile = null;
                 IReadOnlyList<IAudioStream> audioStreamsFile = null;
-                IReadOnlyList<ITextStream> textLanguagesAniDB = null;
-                IReadOnlyList<IAudioStream> audioLanguagesAniDB = null;
+                IReadOnlyList<ITextStream> textLanguagesAniDb = null;
+                IReadOnlyList<IAudioStream> audioLanguagesAniDb = null;
 
                 try
                 {
                     //sub streams as provided by mediainfo
-                    textStreamsFile = video.Video?.MediaInfo.Subs;
+                    textStreamsFile = video.Video?.MediaInfo?.TextStreams;
 
                     //dub streams as provided by mediainfo
-                    audioStreamsFile = video.Video?.MediaInfo.Audio;
+                    audioStreamsFile = video.Video?.MediaInfo?.AudioStreams;
 
                     //sub languages as provided by anidb
-                    textLanguagesAniDB = video.Video?.MediaInfo.Subs;
+                    textLanguagesAniDb = video.Video?.MediaInfo?.TextStreams;
 
                     //sub languages as provided by anidb
-                    audioLanguagesAniDB = video.Video?.MediaInfo.Audio;
+                    audioLanguagesAniDb = video.Video?.MediaInfo?.AudioStreams;
                 }
                 catch
                 {
@@ -269,20 +267,20 @@ namespace Renamer.Baine
                 //check if anidb provides us with information about the audiostreams. if so, check if the language of any of them matches the desired one.
                 //if any of the above is true, set the respective bool to true
                 //the same process applies to both dub and sub
-                if (audioStreamsFile.Any(a => a!.LanguageCode?.Equals("ger", StringComparison.InvariantCultureIgnoreCase) ?? false)
-                    || audioLanguagesAniDB.Any(a => a?.LanguageCode == TitleLanguage.German.ToString()))
+                if (audioStreamsFile != null && audioLanguagesAniDb != null && (audioStreamsFile.Any(a => a!.LanguageCode!.Equals("ger", StringComparison.InvariantCultureIgnoreCase))
+                        || audioLanguagesAniDb.Any(a => a.LanguageCode == TitleLanguage.German.ToString())))
                     isGerDub = true;
 
-                if (textStreamsFile.Any(t => t!.LanguageCode?.Equals("ger", StringComparison.InvariantCultureIgnoreCase) ?? false)
-                    || textLanguagesAniDB!.Any(t => t?.LanguageCode == TitleLanguage.German.ToString()))
+                if (textStreamsFile != null && (textStreamsFile.Any(t => t!.LanguageCode!.Equals("ger", StringComparison.InvariantCultureIgnoreCase))
+                                                || textLanguagesAniDb!.Any(t => t?.LanguageCode == TitleLanguage.German.ToString())))
                     isGerSub = true;
 
-                if (audioStreamsFile.Any(a => a!.LanguageCode?.Equals("eng", StringComparison.InvariantCultureIgnoreCase) ?? false)
-                    || audioLanguagesAniDB.Any(a => a?.LanguageCode == TitleLanguage.English.ToString()))
+                if (audioStreamsFile != null && audioLanguagesAniDb != null && (audioStreamsFile.Any(a => a!.LanguageCode!.Equals("eng", StringComparison.InvariantCultureIgnoreCase))
+                        || audioLanguagesAniDb.Any(a => a.LanguageCode == TitleLanguage.English.ToString())))
                     isEngDub = true;
 
-                if (textStreamsFile.Any(t => t!.LanguageCode?.Equals("eng", StringComparison.InvariantCultureIgnoreCase) ?? false)
-                    || textLanguagesAniDB!.Any(t => t?.LanguageCode == TitleLanguage.English.ToString()))
+                if (textStreamsFile != null && (textStreamsFile.Any(t => t!.LanguageCode!.Equals("eng", StringComparison.InvariantCultureIgnoreCase))
+                        || textLanguagesAniDb!.Any(t => t?.LanguageCode == TitleLanguage.English.ToString())))
                     isEngSub = true;
 
                 //define location based on the OS shokoserver is currently running on
