@@ -38,7 +38,7 @@ namespace Renamer.Baine
         /// <param name="type">TitleType, eg. TitleType.Official or TitleType.Short </param>
         /// <param name="langs">Arguments Array taking in the TitleLanguages that should be search for.</param>
         /// <returns>string representing the Anime Title for the first language a title is found for</returns>
-        private string GetTitleByPref(IWithTitles anime, TitleType type, params TitleLanguage[] langs)
+        private string GetTitleByPref(IShokoSeries anime, TitleType type, bool withAid, params TitleLanguage[] langs)
         {
             //get all titles
             var titles = (List<AnimeTitle>)anime.Titles;
@@ -50,11 +50,11 @@ namespace Renamer.Baine
                 string title = titles.FirstOrDefault(s => s.Language == lang && s.Type == type)?.Title;
 
                 //if title is found, aka title not null, return it
-                if (title != null) return title;
+                if (title != null) return withAid ? title+" [anidb-"+anime.AnidbAnimeID +"]" : title;
             }
 
             //no title found for the preferred languages, return the preferred title as defined by shoko
-            return anime.PreferredTitle;
+            return withAid ? anime.PreferredTitle+" [anidb-"+anime.AnidbAnimeID + "]" : anime.PreferredTitle;
         }
 
         /// <summary>
@@ -73,7 +73,7 @@ namespace Renamer.Baine
                 string title = episode.Titles.FirstOrDefault(s => s.Language == lang)?.Title;
 
                 //return the found title if title is not null
-                if (title != null) return title.Substring(0,Math.Min(title.Length, 150));
+                if (title != null) return title.Substring(0, Math.Min(title.Length, 150));
             }
 
             //no title for any given TitleLanguage found, return the first available.
@@ -90,14 +90,12 @@ namespace Renamer.Baine
             //make args.FileInfo easier accessible. this refers to the actual file
             var video = args.File;
 
-            // Get the Anime Info
-            var animeInfo = args.Series.FirstOrDefault();
+            //make the anime the episode belongs to easier accessible.
+            IShokoSeries anime = args.Series.First();
 
             // Get the preferred title (Overriden, as shown in Desktop)
-            string animeName = animeInfo?.PreferredTitle;
+            string animeName = anime?.PreferredTitle;
 
-            //make the anime the episode belongs to easier accessible.
-            ISeries anime = args.Series.FirstOrDefault();
             if (anime == null)
             {
                 // throw new Exception("Error in renamer: Anime name not found!");
@@ -114,7 +112,7 @@ namespace Renamer.Baine
             StringBuilder name = new StringBuilder();
 
             //add the Anime title as defined by preference
-            name.Append(GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji));
+            name.Append(GetTitleByPref(anime, TitleType.Official, false, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji));
             //after this: name = Showname
 
             //only add prefixes and episode numbers when dealing with non-Movie files/episodes
@@ -169,10 +167,9 @@ namespace Renamer.Baine
                     name.Append("/");
             }
 
-
-            if(name.ToString().Length > 150)
+            if (name.ToString().Length > 150)
                 name = new StringBuilder(name.ToString().Substring(0, 150));
-            
+
             name = new StringBuilder(name.ToString().ReplaceInvalidPathCharacters());
 
             //if (name.ToString().EndsWith("\u2026"))
@@ -182,7 +179,7 @@ namespace Renamer.Baine
 
             //get and append the files extension
             if (name.ToString().EndsWith("\u2026"))
-                name.Append("."+$"{Path.GetExtension(video.FileName)}");
+                name.Append("." + $"{Path.GetExtension(video.FileName)}");
             else
                 name.Append($"{Path.GetExtension(video.FileName)}");
             //after this: name = Showname - S03 - Specialname.mkv
@@ -202,7 +199,7 @@ namespace Renamer.Baine
             RelocationResult result = new();
 
             //get the anime the file in question is linked to
-            ISeries anime = args.Series.FirstOrDefault();
+            IShokoSeries anime = args.Series[0];
             if (anime == null)
             {
                 //throw new Exception("Error in renamer: Anime name not found!");
@@ -223,8 +220,8 @@ namespace Renamer.Baine
             //as well as Dub/Sub-Languages that AniDB provides for the file, if it is known
             IReadOnlyList<ITextStream> textStreamsFile = null;
             IReadOnlyList<IAudioStream> audioStreamsFile = null;
-            IReadOnlyList<ITextStream> textLanguagesAniDb = null;
-            IReadOnlyList<IAudioStream> audioLanguagesAniDb = null;
+            IReadOnlyList<TitleLanguage> textLanguagesAniDb = null;
+            IReadOnlyList<TitleLanguage> audioLanguagesAniDb = null;
 
             try
             {
@@ -235,10 +232,10 @@ namespace Renamer.Baine
                 audioStreamsFile = video.Video?.MediaInfo?.AudioStreams;
 
                 //sub languages as provided by anidb
-                textLanguagesAniDb = video.Video?.MediaInfo?.TextStreams;
+                textLanguagesAniDb = video.Video?.AniDB?.MediaInfo.SubLanguages;
 
                 //sub languages as provided by anidb
-                audioLanguagesAniDb = video.Video?.MediaInfo?.AudioStreams;
+                audioLanguagesAniDb = video.Video?.AniDB?.MediaInfo.AudioLanguages;
             }
             catch
             {
@@ -256,21 +253,25 @@ namespace Renamer.Baine
             //check if anidb provides us with information about the audiostreams. if so, check if the language of any of them matches the desired one.
             //if any of the above is true, set the respective bool to true
             //the same process applies to both dub and sub
-            if (audioStreamsFile != null && audioLanguagesAniDb != null && (audioStreamsFile.Any(a => a!.LanguageCode!.Equals("ger", StringComparison.InvariantCultureIgnoreCase))
-                    || audioLanguagesAniDb.Any(a => a.LanguageCode == TitleLanguage.German.ToString())))
+            if ((audioStreamsFile != null && audioStreamsFile.Any(a => a.Language == TitleLanguage.German))
+                || (audioLanguagesAniDb != null && audioLanguagesAniDb.Any(a => a == TitleLanguage.German))
+                || video.Path.Contains("GerDub"))
                 isGerDub = true;
 
-            if (textStreamsFile != null && (textStreamsFile.Any(t => t!.LanguageCode!.Equals("ger", StringComparison.InvariantCultureIgnoreCase))
-                                            || textLanguagesAniDb!.Any(t => t?.LanguageCode == TitleLanguage.German.ToString())))
+            if ((textStreamsFile != null && textStreamsFile.Any(t => t.Language == TitleLanguage.German))
+                || (textLanguagesAniDb != null && textLanguagesAniDb.Any(t => t == TitleLanguage.German))
+                || video.Path.Contains("GerSub"))
                 isGerSub = true;
 
-            if (audioStreamsFile != null && audioLanguagesAniDb != null && (audioStreamsFile.Any(a => a!.LanguageCode!.Equals("eng", StringComparison.InvariantCultureIgnoreCase))
-                    || audioLanguagesAniDb.Any(a => a.LanguageCode == TitleLanguage.English.ToString())))
+            if ((audioStreamsFile != null && audioStreamsFile.Any(a => a.Language == TitleLanguage.English))
+                || (audioLanguagesAniDb != null && audioLanguagesAniDb.Any(a => a == TitleLanguage.English))
+                || video.Path.Contains("Other"))
                 isEngDub = true;
 
-            if (textStreamsFile != null && (textStreamsFile.Any(t => t!.LanguageCode!.Equals("eng", StringComparison.InvariantCultureIgnoreCase))
-                    || textLanguagesAniDb!.Any(t => t?.LanguageCode == TitleLanguage.English.ToString())))
-                isEngSub = true;
+            if ((textStreamsFile != null && textStreamsFile.Any(t => t.Language == TitleLanguage.English))
+                || (textLanguagesAniDb != null && textLanguagesAniDb.Any(t => t == TitleLanguage.English))
+                || video.Path.Contains("Other"))
+                isGerSub = true;
 
             //define location based on the OS shokoserver is currently running on
             location = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "/mnt/array/" : "Z:\\";
@@ -281,42 +282,42 @@ namespace Renamer.Baine
             //add a directory separator char. this automatically switches between the proper char for the current OS
             location += Path.DirectorySeparatorChar;
 
-
             //a while true loop. be carefull here, since this would always require a default break; otherwise this ever ends
             //used to evaluate the previously set bools and add the 2nd subfolder depending on available dubs/subs
             //if no choice can be made, a fallback folder is used for manual processing
             while (true)
+            {
+                if (isGerDub)
                 {
-                    if (isGerDub || (video.Path.Contains(Path.DirectorySeparatorChar + "GerDub" + Path.DirectorySeparatorChar)))
-                    {
-                        location += "GerDub";
-                        break;
-                    }
-
-                    if (isGerSub || (video.Path.Contains(Path.DirectorySeparatorChar + "GerDub" + Path.DirectorySeparatorChar)))
-                    {
-                        location += "GerSub";
-                        break;
-                    }
-
-                    if (isEngDub || isEngSub || (video.Path.Contains(Path.DirectorySeparatorChar + "Other" + Path.DirectorySeparatorChar)))
-                    {
-                        location += "Other";
-                        break;
-                    }
-
-                    location += "_manual";
+                    location += "GerDub";
                     break;
-
                 }
 
-                //add a trailing directory separator char, since the folders in shokoserver are currently forcibly set up with one as well
-                location += Path.DirectorySeparatorChar;
+                if (isGerSub)
+                {
+                    location += "GerSub";
+                    break;
+                }
 
-                //check if any of the available folders matches the constructed path in location, set it as destination
-                result.DestinationImportFolder = args.AvailableFolders.FirstOrDefault(a => a.Path == location);
-                //DestinationPath is the name of the final subfolder containing the episode files. Get it by preferrence
-                result.Path = GetTitleByPref(anime, TitleType.Official, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
+                if ((isEngDub || isEngSub))
+                {
+                    location += "Other";
+                    break;
+                }
+
+                location += "_manual";
+                break;
+
+            }
+
+            //add a trailing directory separator char, since the folders in shokoserver are currently forcibly set up with one as well
+            location += Path.DirectorySeparatorChar;
+
+            //check if any of the available folders matches the constructed path in location, set it as destination
+            result.DestinationImportFolder = args.AvailableFolders.FirstOrDefault(a => a.Path == location);
+
+            //DestinationPath is the name of the final subfolder containing the episode files. Get it by preferrence
+            result.Path = GetTitleByPref(anime, TitleType.Official, true, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
 
             result.FileName = GetFilename(args);
 
@@ -329,4 +330,3 @@ namespace Renamer.Baine
         }
     }
 }
-                                                                                                      
