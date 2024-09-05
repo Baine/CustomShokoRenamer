@@ -254,24 +254,20 @@ namespace Renamer.Baine
             //if any of the above is true, set the respective bool to true
             //the same process applies to both dub and sub
             if ((audioStreamsFile != null && audioStreamsFile.Any(a => a.Language == TitleLanguage.German))
-                || (audioLanguagesAniDb != null && audioLanguagesAniDb.Any(a => a == TitleLanguage.German))
-                || video.Path.Contains("GerDub"))
+                || (audioLanguagesAniDb != null && audioLanguagesAniDb.Any(a => a == TitleLanguage.German)))
                 isGerDub = true;
 
             if ((textStreamsFile != null && textStreamsFile.Any(t => t.Language == TitleLanguage.German))
-                || (textLanguagesAniDb != null && textLanguagesAniDb.Any(t => t == TitleLanguage.German))
-                || video.Path.Contains("GerSub"))
+                || (textLanguagesAniDb != null && textLanguagesAniDb.Any(t => t == TitleLanguage.German)))
                 isGerSub = true;
 
             if ((audioStreamsFile != null && audioStreamsFile.Any(a => a.Language == TitleLanguage.English))
-                || (audioLanguagesAniDb != null && audioLanguagesAniDb.Any(a => a == TitleLanguage.English))
-                || video.Path.Contains("Other"))
+                || (audioLanguagesAniDb != null && audioLanguagesAniDb.Any(a => a == TitleLanguage.English)))
                 isEngDub = true;
 
             if ((textStreamsFile != null && textStreamsFile.Any(t => t.Language == TitleLanguage.English))
-                || (textLanguagesAniDb != null && textLanguagesAniDb.Any(t => t == TitleLanguage.English))
-                || video.Path.Contains("Other"))
-                isGerSub = true;
+                || (textLanguagesAniDb != null && textLanguagesAniDb.Any(t => t == TitleLanguage.English)))
+                isEngSub = true;
 
             //define location based on the OS shokoserver is currently running on
             location = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "/mnt/array/" : "Z:\\";
@@ -287,19 +283,19 @@ namespace Renamer.Baine
             //if no choice can be made, a fallback folder is used for manual processing
             while (true)
             {
-                if (isGerDub)
+                if (isGerDub || video.Path.Contains(Path.DirectorySeparatorChar + "GerDub" + Path.DirectorySeparatorChar))
                 {
                     location += "GerDub";
                     break;
                 }
 
-                if (isGerSub)
+                if (isGerSub || video.Path.Contains(Path.DirectorySeparatorChar + "GerSub" + Path.DirectorySeparatorChar))
                 {
                     location += "GerSub";
                     break;
                 }
 
-                if ((isEngDub || isEngSub))
+                if ((isEngDub || isEngSub) || video.Path.Contains(Path.DirectorySeparatorChar + "Other" + Path.DirectorySeparatorChar))
                 {
                     location += "Other";
                     break;
