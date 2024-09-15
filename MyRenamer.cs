@@ -38,20 +38,8 @@ namespace Renamer.Baine
         /// <param name="type">TitleType, eg. TitleType.Official or TitleType.Short </param>
         /// <param name="langs">Arguments Array taking in the TitleLanguages that should be search for.</param>
         /// <returns>string representing the Anime Title for the first language a title is found for</returns>
-        private string GetTitleByPref(IShokoSeries anime, TitleType type, bool withAid, params TitleLanguage[] langs)
+        private string GetTitleByPref(IShokoSeries anime, bool withAid)
         {
-            //get all titles
-            var titles = (List<AnimeTitle>)anime.Titles;
-
-            //iterate over the given TitleLanguages in langs
-            foreach (TitleLanguage lang in langs)
-            {
-                //set title to the first found title of the defined language. if nothing found title will stay null
-                string title = titles.FirstOrDefault(s => s.Language == lang && s.Type == type)?.Title;
-
-                //if title is found, aka title not null, return it
-                if (title != null) return withAid ? title+" [anidb-"+anime.AnidbAnimeID +"]" : title;
-            }
 
             //no title found for the preferred languages, return the preferred title as defined by shoko
             return withAid ? anime.PreferredTitle+" [anidb-"+anime.AnidbAnimeID + "]" : anime.PreferredTitle;
@@ -63,21 +51,10 @@ namespace Renamer.Baine
         /// <param name="episode">IEpisode object representing the episode to search the name for</param>
         /// <param name="langs">Arguments array taking in the TitleLanguages that should be search for.</param>
         /// <returns>string representing the episode name for the first language a name is found for</returns>
-        private string GetEpNameByPref(IShokoEpisode episode, params TitleLanguage[] langs)
+        private string GetEpNameByPref(IShokoEpisode episode)
         {
-            //iterate over all passed TitleLanguages
-            foreach (TitleLanguage lang in langs)
-            {
-                //set the title to the first found title whose language matches with the search one.
-                //if none is found, title is null
-                string title = episode.Titles.FirstOrDefault(s => s.Language == lang)?.Title;
 
-                //return the found title if title is not null
-                if (title != null) return title.Substring(0, Math.Min(title.Length, 150));
-            }
-
-            //no title for any given TitleLanguage found, return the first available.
-            return episode.Titles.First().Title.Substring(0, Math.Min(episode.Titles.First().Title.Length, 150));
+            return episode.PreferredTitle.Substring(0, Math.Min(episode.Titles.First().Title.Length, 150));
         }
 
         /// <summary>
@@ -112,7 +89,7 @@ namespace Renamer.Baine
             StringBuilder name = new StringBuilder();
 
             //add the Anime title as defined by preference
-            name.Append(GetTitleByPref(anime, TitleType.Official, false, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji));
+            name.Append(GetTitleByPref(anime, false));
             //after this: name = Showname
 
             //only add prefixes and episode numbers when dealing with non-Movie files/episodes
@@ -162,7 +139,7 @@ namespace Renamer.Baine
             //get the preferred episode names and add them to the name
             foreach (var ep in episodes)
             {
-                name.Append(GetEpNameByPref(ep, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji));
+                name.Append(GetEpNameByPref(ep));
                 if (!ep.Equals(episodes.Last()))
                     name.Append("/");
             }
@@ -313,7 +290,7 @@ namespace Renamer.Baine
             result.DestinationImportFolder = args.AvailableFolders.FirstOrDefault(a => a.Path == location);
 
             //DestinationPath is the name of the final subfolder containing the episode files. Get it by preferrence
-            result.Path = GetTitleByPref(anime, TitleType.Official, true, TitleLanguage.German, TitleLanguage.English, TitleLanguage.Romaji).ReplaceInvalidPathCharacters();
+            result.Path = GetTitleByPref(anime, true).ReplaceInvalidPathCharacters();
 
             result.FileName = GetFilename(args);
 
