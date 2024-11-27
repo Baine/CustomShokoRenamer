@@ -182,7 +182,7 @@ public class MyRenamer : IRenamer
     ///     Get the new filename for a specified file
     /// </summary>
     /// <param name="args">Renaming Arguments, e.g. available folders</param>
-    private string GetFilename(RelocationEventArgs args)
+    private static string GetFilename(RelocationEventArgs args)
     {
         //make args.FileInfo easier accessible. this refers to the actual file
         var video = args.File;
@@ -279,10 +279,5 @@ public class MyRenamer : IRenamer
 
         //set the name as the result, replacing invalid path characters (e.g. '/') with similar looking Unicode Characters
         return name.ToString();
-    }
-
-    //nothing to do on plugin load
-    public void Load()
-    {
     }
 }
