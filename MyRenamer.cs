@@ -175,7 +175,7 @@ public class MyRenamer : IRenamer
     /// <returns>string representing the episode name for the first language a name is found for</returns>
     private static string GetEpNameByPref(IShokoEpisode episode)
     {
-        return episode.PreferredTitle[..Math.Min(episode.Titles.First().Title.Length, 150)];
+        return episode.PreferredTitle;
     }
 
     /// <summary>
@@ -260,9 +260,9 @@ public class MyRenamer : IRenamer
                 name.Append("/");
         }
 
-        if (name.ToString().Length > 150)
-            name = new StringBuilder(name.ToString()[..150]);
-
+        if (name.Length > 250)
+            name = new StringBuilder(name.ToString()[..250]);
+        
         name = new StringBuilder(name.ToString().ReplaceInvalidPathCharacters());
 
         //if (name.ToString().EndsWith("\u2026"))
