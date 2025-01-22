@@ -165,7 +165,7 @@ public class MyRenamer : IRenamer
     private static string GetTitleByPref(IShokoSeries anime, bool withAid)
     {
         //no title found for the preferred languages, return the preferred title as defined by shoko
-        return withAid ? anime.PreferredTitle + " [anidb-" + anime.AnidbAnimeID + "]" : anime.PreferredTitle;
+        return withAid ? anime.PreferredTitle + " {anidb2-" + anime.AnidbAnimeID + "}" : anime.PreferredTitle;
     }
 
     /// <summary>
@@ -260,8 +260,8 @@ public class MyRenamer : IRenamer
                 name.Append("/");
         }
 
-        if (name.Length > 250)
-            name = new StringBuilder(name.ToString()[..250]);
+        if (name.Length > 240)
+            name = new StringBuilder(name.ToString()[..240]);
         
         name = new StringBuilder(name.ToString().ReplaceInvalidPathCharacters());
 
