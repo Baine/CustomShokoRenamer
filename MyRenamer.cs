@@ -260,8 +260,8 @@ public class MyRenamer : IRenamer
                 name.Append("/");
         }
 
-        if (name.Length > 240)
-            name = new StringBuilder(name.ToString()[..240]);
+        if (name.Length > 225)
+            name = new StringBuilder(name.ToString()[..225]);
         
         name = new StringBuilder(name.ToString().ReplaceInvalidPathCharacters());
 
