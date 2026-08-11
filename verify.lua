@@ -1,4 +1,4 @@
--- Verification harness for bainesrenamer (Lua 5.1)
+-- Verification harness for bainesrenamer (Lua 5.1 and 5.4)
 -- Run: lua verify.lua [script.lua]  (defaults to bainesrenamer_v4.lua)
 
 string.cleanspaces = function(self, char)
@@ -70,6 +70,17 @@ local function set_id(ep, id)
   return ep
 end
 
+-- loadfile the script with a custom env on both 5.1 (setfenv) and 5.4
+-- (loadfile's third argument).
+local function loadfile_env(file, env)
+  if setfenv then
+    local chunk = loadfile(file)
+    setfenv(chunk, env)
+    return chunk
+  end
+  return loadfile(file, "t", env)
+end
+
 local passed = 0
 local function run(name, stubs, checks)
   local env = setmetatable({}, { __index = _G })
@@ -77,9 +88,7 @@ local function run(name, stubs, checks)
   env.Language, env.AnimeType, env.EpisodeType = Language, AnimeType, EpisodeType
   env.from, env.fromNothing = from, fromNothing
   env.tmdb = { episodes = stubs.tmdb_episodes or {}, shows = stubs.tmdb_shows or {}, movies = stubs.tmdb_movies or {} }
-  local script = arg and arg[1] or "bainesrenamer_v4.lua"
-  local chunk = loadfile(script)
-  setfenv(chunk, env)
+  local chunk = loadfile_env(arg and arg[1] or "bainesrenamer_v4.lua", env)
   chunk()
   for _, check in ipairs(checks) do
     check(env, name)
@@ -155,11 +164,11 @@ run("Multi-episode movie -> own TMDB movie folders", {
   episode = set_id(make_ep(1, EpisodeType.Episode), 501),
   file = { path = "/mnt/array/Downloads/_drop/shadow1.mkv", media = nil, anidb = nil },
   tmdb_movies = {
-    { id = "1001", anidbepisodeid = 501, preferredname = "Shadow Skill: After the Battle", airdate = { year = 1996 } },
-    { id = "1002", anidbepisodeid = 502, preferredname = "Shadow Skill: The Second", airdate = { year = 1996 } },
-    { id = "1003", anidbepisodeid = 503, preferredname = "Shadow Skill: The Third", airdate = { year = 1996 } },
+    { id = "1001", anidbepisodeids = { 501 }, preferredname = "Shadow Skill: After the Battle", airdate = { year = 1996 } },
+    { id = "1002", anidbepisodeids = { 502 }, preferredname = "Shadow Skill: The Second", airdate = { year = 1996 } },
+    { id = "1003", anidbepisodeids = { 503 }, preferredname = "Shadow Skill: The Third", airdate = { year = 1996 } },
   },
-}, { eq("TmdbMovieFolder", "Shadow Skill: After the Battle (1996)", { "Shadow Skill: After the Battle (1996) [tmdbid-1001]" }, "/mnt/array/Anime/Movies/_manual") })
+}, { eq("TmdbMovieFolder", "Shadow Skill: After the Battle (1996)", { "Shadow Skill: After the Battle (1996)" }, "/mnt/array/Anime/Movies/_manual") })
 
 run("Multiple episodes -> same TMDB movie keeps part numbers", {
   anime = make_anime({ id = 5611, type = AnimeType.Movie, airdate = { year = 2008 }, preferredname = "Batman: Gotham Knight", episodecounts = { Episode = 6, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
@@ -167,11 +176,24 @@ run("Multiple episodes -> same TMDB movie keeps part numbers", {
   episode = set_id(make_ep(2, EpisodeType.Episode), 602),
   file = { path = "/mnt/array/Downloads/_drop/gotham2.mkv", media = nil, anidb = nil },
   tmdb_movies = {
-    { id = "2001", anidbepisodeid = 601, preferredname = "Batman: Gotham Knight", airdate = { year = 2008 } },
-    { id = "2001", anidbepisodeid = 602, preferredname = "Batman: Gotham Knight", airdate = { year = 2008 } },
-    { id = "2001", anidbepisodeid = 603, preferredname = "Batman: Gotham Knight", airdate = { year = 2008 } },
+    { id = "2001", anidbepisodeids = { 601, 602, 603 }, preferredname = "Batman: Gotham Knight", airdate = { year = 2008 } },
   },
-}, { eq("TmdbMovieShared", "Batman: Gotham Knight (2008) - 02", { "Batman: Gotham Knight (2008) [tmdbid-2001]" }, "/mnt/array/Anime/Movies/_manual") })
+}, { eq("TmdbMovieShared", "Batman: Gotham Knight (2008) - 02", { "Batman: Gotham Knight (2008)" }, "/mnt/array/Anime/Movies/_manual") })
+
+run("TMDB episode linked to several AniDB episodes matches by membership", {
+  anime = make_anime({ id = 7, _de = "Multi Link", airdate = { year = 2021 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { de = "Folge 1" }), 901) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { de = "Folge 1" }), 901),
+  file = {
+    path = "/mnt/array/Downloads/_drop/multi.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = { { id = "55", preferredname = "Multi Link", airdate = { year = 2021 } } },
+  tmdb_episodes = {
+    { anidbepisodeids = { 901, 902 }, type = EpisodeType.Episode, number = 1, seasonnumber = 2, showid = "55" },
+  },
+}, { eq("TmdbEpisodeShared", "Multi Link - S02E01 - Folge 1", { "Multi Link (2021)", "Season 02 [anidbid-7]" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("OVA typed movie via TMDB cross-ref", {
   anime = make_anime({ id = 1208, type = AnimeType.OVA, airdate = { year = 2005 }, preferredname = "Final Fantasy VII: Advent Children", episodecounts = { Episode = 6, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
@@ -179,11 +201,11 @@ run("OVA typed movie via TMDB cross-ref", {
   episode = set_id(make_ep(1, EpisodeType.Episode), 39865),
   file = { path = "/mnt/array/Downloads/_drop/ac.mkv", media = nil, anidb = nil },
   tmdb_movies = {
-    { id = "647", anidbepisodeid = 39865, preferredname = "Final Fantasy VII: Advent Children", airdate = { year = 2005 } },
-    { id = "59300", anidbepisodeid = 100202, preferredname = "On the Way to a Smile", airdate = { year = 2009 } },
-    { id = "1225938", anidbepisodeid = 157050, preferredname = "Dirge of Cerberus", airdate = { year = 2006 } },
+    { id = "647", anidbepisodeids = { 39865 }, preferredname = "Final Fantasy VII: Advent Children", airdate = { year = 2005 } },
+    { id = "59300", anidbepisodeids = { 100202 }, preferredname = "On the Way to a Smile", airdate = { year = 2009 } },
+    { id = "1225938", anidbepisodeids = { 157050 }, preferredname = "Dirge of Cerberus", airdate = { year = 2006 } },
   },
-}, { eq("OvaMovie", "Final Fantasy VII: Advent Children (2005)", { "Final Fantasy VII: Advent Children (2005) [tmdbid-647]" }, "/mnt/array/Anime/Movies/_manual") })
+}, { eq("OvaMovie", "Final Fantasy VII: Advent Children (2005)", { "Final Fantasy VII: Advent Children (2005)" }, "/mnt/array/Anime/Movies/_manual") })
 
 run("OVA movie episode without TMDB link falls back", {
   anime = make_anime({ id = 1208, type = AnimeType.OVA, airdate = { year = 2005 }, preferredname = "Final Fantasy VII: Advent Children", episodecounts = { Episode = 6, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
@@ -191,7 +213,7 @@ run("OVA movie episode without TMDB link falls back", {
   episode = set_id(make_ep(4, EpisodeType.Episode), 42410),
   file = { path = "/mnt/array/Downloads/_drop/ac4.mkv", media = nil, anidb = nil },
   tmdb_movies = {
-    { id = "647", anidbepisodeid = 39865, preferredname = "Final Fantasy VII: Advent Children", airdate = { year = 2005 } },
+    { id = "647", anidbepisodeids = { 39865 }, preferredname = "Final Fantasy VII: Advent Children", airdate = { year = 2005 } },
   },
 }, { eq("OvaMovieFallback", "Final Fantasy VII: Advent Children (2005) - 04", { "Final Fantasy VII: Advent Children (2005) [anidbid-1208]" }, "/mnt/array/Anime/Movies/_manual") })
 
@@ -218,8 +240,8 @@ run("TV show normal ep stays a show despite movie-linked specials", {
   tmdb_shows = { { id = "21296", preferredname = "Sherlock Hound", airdate = { year = 1984 } } },
   tmdb_episodes = { { type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "21296" } },
   tmdb_movies = {
-    { id = "332324", anidbepisodeid = 144477, preferredname = "Sherlock Hound: The Hound of the Baskervilles", airdate = { year = 1984 } },
-    { id = "674707", anidbepisodeid = 181241, preferredname = "Sherlock Hound: The Emerald Coronet", airdate = { year = 1984 } },
+    { id = "332324", anidbepisodeids = { 144477 }, preferredname = "Sherlock Hound: The Hound of the Baskervilles", airdate = { year = 1984 } },
+    { id = "674707", anidbepisodeids = { 181241 }, preferredname = "Sherlock Hound: The Emerald Coronet", airdate = { year = 1984 } },
   },
 }, { eq("SherlockShowEp", "Sherlock Hound - S01E01 - Eine raetselhafte Entfuehrung", { "Sherlock Hound (1984)", "Season 01 [anidbid-617]" }, "/mnt/array/Anime/Shows/GerDub") })
 
@@ -233,10 +255,10 @@ run("TV show special with TMDB movie link becomes a movie", {
     anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
   },
   tmdb_movies = {
-    { id = "332324", anidbepisodeid = 144477, preferredname = "Sherlock Hound: The Hound of the Baskervilles", airdate = { year = 1984 } },
-    { id = "674707", anidbepisodeid = 181241, preferredname = "Sherlock Hound: The Emerald Coronet", airdate = { year = 1984 } },
+    { id = "332324", anidbepisodeids = { 144477 }, preferredname = "Sherlock Hound: The Hound of the Baskervilles", airdate = { year = 1984 } },
+    { id = "674707", anidbepisodeids = { 181241 }, preferredname = "Sherlock Hound: The Emerald Coronet", airdate = { year = 1984 } },
   },
-}, { eq("SherlockMovieSpecial", "Sherlock Hound: The Hound of the Baskervilles (1984) - Special 01", { "Sherlock Hound: The Hound of the Baskervilles (1984) [tmdbid-332324]", "Specials" }, "/mnt/array/Anime/Movies/GerDub") })
+}, { eq("SherlockMovieSpecial", "Sherlock Hound: The Hound of the Baskervilles (1984) - Special 01", { "Sherlock Hound: The Hound of the Baskervilles (1984)", "Specials" }, "/mnt/array/Anime/Movies/GerDub") })
 
 run("Movie-typed entry: movie ep gets its own TMDB movie folder", {
   anime = make_anime({ id = 12277, type = AnimeType.Movie, _de = "Cyborg 009: Call of Justice", airdate = { year = 2016 }, episodecounts = { Episode = 3, Other = 12, Special = 0, Trailer = 0, Credits = 0, Parody = 0 } }),
@@ -248,15 +270,15 @@ run("Movie-typed entry: movie ep gets its own TMDB movie folder", {
     anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
   },
   tmdb_movies = {
-    { id = "419095", anidbepisodeid = 179015, preferredname = "Cyborg 009: Call of Justice 1", airdate = { year = 2016 } },
-    { id = "419096", anidbepisodeid = 179016, preferredname = "Cyborg 009: Call of Justice 2", airdate = { year = 2016 } },
-    { id = "419098", anidbepisodeid = 179017, preferredname = "Cyborg 009: Call of Justice 3", airdate = { year = 2016 } },
+    { id = "419095", anidbepisodeids = { 179015 }, preferredname = "Cyborg 009: Call of Justice 1", airdate = { year = 2016 } },
+    { id = "419096", anidbepisodeids = { 179016 }, preferredname = "Cyborg 009: Call of Justice 2", airdate = { year = 2016 } },
+    { id = "419098", anidbepisodeids = { 179017 }, preferredname = "Cyborg 009: Call of Justice 3", airdate = { year = 2016 } },
   },
   tmdb_episodes = {
-    { anidbepisodeid = 189696, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "70178" },
-    { anidbepisodeid = 189695, type = EpisodeType.Episode, number = 2, seasonnumber = 1, showid = "70178" },
+    { anidbepisodeids = { 189696 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "70178" },
+    { anidbepisodeids = { 189695 }, type = EpisodeType.Episode, number = 2, seasonnumber = 1, showid = "70178" },
   },
-}, { eq("CyborgMovie", "Cyborg 009: Call of Justice 1 (2016)", { "Cyborg 009: Call of Justice 1 (2016) [tmdbid-419095]" }, "/mnt/array/Anime/Movies/GerDub") })
+}, { eq("CyborgMovie", "Cyborg 009: Call of Justice 1 (2016)", { "Cyborg 009: Call of Justice 1 (2016)" }, "/mnt/array/Anime/Movies/GerDub") })
 
 run("Movie-typed entry: show-linked TV ep goes to Shows", {
   anime = make_anime({ id = 12277, type = AnimeType.Movie, _de = "Cyborg 009: Call of Justice", airdate = { year = 2016 }, episodecounts = { Episode = 3, Other = 12, Special = 0, Trailer = 0, Credits = 0, Parody = 0 } }),
@@ -269,11 +291,11 @@ run("Movie-typed entry: show-linked TV ep goes to Shows", {
   },
   tmdb_shows = { { id = "70178", preferredname = "Cyborg 009: Call of Justice", airdate = { year = 2016 } } },
   tmdb_episodes = {
-    { anidbepisodeid = 189696, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "70178" },
-    { anidbepisodeid = 189695, type = EpisodeType.Episode, number = 2, seasonnumber = 1, showid = "70178" },
+    { anidbepisodeids = { 189696 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "70178" },
+    { anidbepisodeids = { 189695 }, type = EpisodeType.Episode, number = 2, seasonnumber = 1, showid = "70178" },
   },
   tmdb_movies = {
-    { id = "419095", anidbepisodeid = 179015, preferredname = "Cyborg 009: Call of Justice 1", airdate = { year = 2016 } },
+    { id = "419095", anidbepisodeids = { 179015 }, preferredname = "Cyborg 009: Call of Justice 1", airdate = { year = 2016 } },
   },
 }, { eq("CyborgShowEp", "Cyborg 009: Call of Justice - S01E01 - Folge 1", { "Cyborg 009: Call of Justice (2016)", "Season 01 [anidbid-12277]" }, "/mnt/array/Anime/Shows/GerDub") })
 

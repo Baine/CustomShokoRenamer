@@ -10,7 +10,7 @@ Rename scripts for a large (~70k file) anime library in **Shoko**, producing a
 Files:
 
 - `bainesrenamer_v4.lua` — the live renamer script. This is the code you change.
-- `verify.lua` — 23-check test harness. Run `lua verify.lua`; every check must pass.
+- `verify.lua` — 24-check test harness. Run `lua verify.lua`; every check must pass.
 - `refresh_tmdb_movies.py` — hits Shoko's v3 API to fetch uncached TMDB movie
   metadata. Stdlib only, no dependencies.
 - `migrate.lua`, `migrate_ids.py`, `migration.sql`, `MIGRATION.md` — earlier
@@ -23,9 +23,9 @@ Files:
 For each file the renamer must:
 
 1. **Look up the TMDB cross-ref for the file's primary episode** by matching
-   `anidbepisodeid` against `tmdb.movies[].anidbepisodeid` and
-   `tmdb.episodes[].anidbepisodeid`. **Fall back to AniDB** (title + `[anidbid-]`
-   folder) when there is no TMDB cross-ref.
+   `episode.id` against `tmdb.movies[].anidbepisodeids` and
+   `tmdb.episodes[].anidbepisodeids` (both lists). **Fall back to AniDB**
+   (title + `[anidbid-]` folder) when there is no TMDB cross-ref.
 2. **Decide movie vs show from the used cross-ref**:
    - movie cross-ref → `Movies` branch
    - show cross-ref → `Shows` branch
@@ -40,11 +40,13 @@ For each file the renamer must:
 
 ## Rules
 
-- Lua 5.1 only. No `{...}[k]`, no `goto`, no `//`. Match existing style.
+- The script must run on both Lua 5.1 and Lua 5.4 (the LuaRenamer plugin runs
+  5.4). Keep to the intersection: no `{...}[k]`, no `goto`, no `//`. Match
+  existing style.
 - After editing `bainesrenamer_v4.lua`:
-  1. `luac -p bainesrenamer_v4.lua` (must be silent)
+  1. `luac -p bainesrenamer_v4.lua` and `luac5.4 -p bainesrenamer_v4.lua` (both silent)
   2. update/add cases in `verify.lua`
-  3. `lua verify.lua` — all checks must pass
+  3. `lua verify.lua` and `lua5.4 verify.lua` — all checks must pass on both
 - `verify.lua` stubs the environment (`anime`, `episodes`, `episode`, `file`,
   `tmdb.*`). A new rule needs a test. Assert `filename`, `destination`, and
   `subfolder`.
@@ -52,10 +54,11 @@ For each file the renamer must:
   the read-only helper (`python C:\Users\Paul\AppData\Local\Temp\opencode\qdb.py`),
   but never report its content as live state and never write to it.
   Use `$env:PYTHONIOENCODING="utf-8"` when querying (cp1252 chokes on titles).
-- The LuaRenamer plugin is a separate repo with its own PR
-  (https://github.com/Mik1ll/LuaRenamer/pull/144). The script needs the new
-  plugin build (`tmdb.movies[].anidbepisodeid`,
-  `tmdb.episodes[].anidbepisodeid`) to do cross-ref detection. Without it, the
+- The LuaRenamer plugin is a separate repo. Upstream merged the cross-ref work
+  as its own commit: `tmdb.movies[].anidbepisodeids` and
+  `tmdb.episodes[].anidbepisodeids` are now **lists** (one TMDB entry carries
+  every AniDB episode it links to, scoped to the anime). The script matches
+  `episode.id` against those lists. Without a plugin build exposing them, the
   script falls back to AniDB-driven behavior.
 
 ## What NOT to do (learned the hard way)

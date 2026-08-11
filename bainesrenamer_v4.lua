@@ -100,11 +100,14 @@ end
 
 -- TMDB movie linked to the file's primary episode, or nil. AniDB movie entries
 -- often hold several films (episodes 1..N); each one is usually its own TMDB
--- movie, and the per-episode cross-reference tells them apart.
+-- movie, and the per-episode cross-reference tells them apart. The plugin
+-- exposes every AniDB episode link of a movie as anidbepisodeids.
 local function get_tmdb_movie()
   if not tmdb or not tmdb.movies or not episode or not episode.id then return nil end
   for i, m in ipairs(tmdb.movies) do
-    if tostring(m.anidbepisodeid) == tostring(episode.id) then return m end
+    for j, id in ipairs(m.anidbepisodeids or {}) do
+      if tostring(id) == tostring(episode.id) then return m end
+    end
   end
   return nil
 end
@@ -112,11 +115,14 @@ end
 -- TMDB episode of the show that the file's primary episode is linked to, or
 -- nil. When present it governs season, episode number and folder, so the
 -- layout mirrors TMDB even when AniDB typed the episode as something else
--- (Cyborg 009's TV episodes are "Other" on AniDB but season 1 on TMDB).
+-- (Cyborg 009's TV episodes are "Other" on AniDB but season 1 on TMDB). A
+-- TMDB episode can cover several AniDB episodes, so the link is a list.
 local function get_tmdb_episode()
   if not tmdb or not tmdb.episodes or not episode or not episode.id then return nil end
   for i, te in ipairs(tmdb.episodes) do
-    if tostring(te.anidbepisodeid) == tostring(episode.id) then return te end
+    for j, id in ipairs(te.anidbepisodeids or {}) do
+      if tostring(id) == tostring(episode.id) then return te end
+    end
   end
   return nil
 end
@@ -183,20 +189,21 @@ end
 
 -- How many episodes of the anime link to the given TMDB movie. More than one
 -- means several files share the movie's folder and still need part numbers.
+-- The plugin lists all linked AniDB episode IDs on the movie, so one movie
+-- entry can hold several of them.
 local function tmdb_movie_count(id)
-  local n = 0
   for i, m in ipairs(tmdb.movies or {}) do
-    if tostring(m.id) == tostring(id) then n = n + 1 end
+    if tostring(m.id) == tostring(id) then return #(m.anidbepisodeids or {}) end
   end
-  return n
+  return 0
 end
 
 -- Root folder name. TMDB structure wins: one anime can be spread over several
 -- AniDB entries (Sign, Twilight and Roots are seasons of ".hack"), and they
 -- must share one show folder. Falls back to the AniDB title when the file has
 -- no TMDB cross-reference. Movies use the TMDB movie of the file's episode
--- when there is one (a multi-part movie becomes one folder per film); the
--- anidbid tag keeps same-name movies apart and they have no season level.
+-- when there is one (a multi-part movie becomes one folder per film) and they
+-- have no season level.
 local function get_anime_folder_name()
   if is_movie() then
     local m = get_tmdb_movie()
@@ -205,7 +212,7 @@ local function get_anime_folder_name()
       if name then
         local suffix = m.airdate and not name:match("%(%d%d%d%d%)$")
             and (" (" .. tostring(m.airdate.year) .. ")") or ""
-        return truncate_bytes(name, 255 - #suffix - 5) .. suffix .. " [tmdbid-" .. m.id .. "]"
+        return truncate_bytes(name, 255 - #suffix) .. suffix
       end
     end
   else

@@ -108,7 +108,7 @@ harmed.
   per film (a multi-part AniDB movie becomes one folder per TMDB movie). Part
   numbers only remain when several episodes share one movie (e.g. Gotham
   Knight: 6 episodes, 1 TMDB movie). Requires the LuaRenamer plugin build with
-  `anidbepisodeid` on `tmdb.movies`.
+  `anidbepisodeids` on `tmdb.movies`.
 - Movie extras (trailers/specials) get a type tag: `Title (year) - Trailer 01`.
 
 ---
