@@ -7,10 +7,10 @@
 --   adds the title folder (and the season folder / content folder for shows).
 --
 -- IMPORT FOLDERS (each is a Shoko import folder, type Destination)
---   Anime/Shows/GerDub    Anime/Shows/GerSub    Anime/Shows/Other    Anime/Shows/_manual
---   Hentai/Shows/GerDub   Hentai/Shows/GerSub   Hentai/Shows/Other   Hentai/Shows/_manual
---   Anime/Movies/GerDub   Anime/Movies/GerSub   Anime/Movies/Other   Anime/Movies/_manual
---   Hentai/Movies/GerDub  Hentai/Movies/GerSub  Hentai/Movies/Other  Hentai/Movies/_manual
+--   Anime/Shows/GerDub    Anime/Shows/GerSub    Anime/Shows/Others    Anime/Shows/_manual
+--   Hentai/Shows/GerDub   Hentai/Shows/GerSub   Hentai/Shows/Others   Hentai/Shows/_manual
+--   Anime/Movies/GerDub   Anime/Movies/GerSub   Anime/Movies/Others   Anime/Movies/_manual
+--   Hentai/Movies/GerDub  Hentai/Movies/GerSub  Hentai/Movies/Others  Hentai/Movies/_manual
 --   plus the Downloads/_drop folder where files are dropped.
 --
 -- TARGET TREE (matches tofa's naming scheme, docs.tofa.tv/name-your-media)
@@ -20,7 +20,7 @@
 --
 --     base        Anime (safe) or Hentai (anime.restricted)
 --     media type  Movies (AniDB type Movie) or Shows (everything else)
---     category    GerDub | GerSub | Other | _manual   (see get_category)
+--     category    GerDub | GerSub | Others | _manual   (see get_category)
 --     year        from the air date (anime.year does not exist in the Lua env)
 --     season NN   TMDB season number when available, else 1 (AniDB is
 --                 single-season per entry, so AniDB fallback is season 1)
@@ -77,14 +77,19 @@ local Other = has(adb_subs, Language.English) or has(adb_dubs, Language.English)
 
 -- Keep manual placement: a file that already sits in a category folder is not
 -- reclassified. Works for any file, wherever it was dropped from.
+--
+-- "Other" is accepted as a legacy source folder and normalized to "Others",
+-- so remaining files in the old path migrate automatically on relocation.
 local function category_from_path()
   local segs = {}
   for seg in file.path:gmatch("[^/]+") do segs[#segs + 1] = seg end
   for i = 1, #segs - 1 do
     if segs[i] == base then
       for j = i + 1, math.min(i + 2, #segs) do
-        if segs[j] == "GerDub" or segs[j] == "GerSub" or segs[j] == "Other" or segs[j] == "_manual" then
+        if segs[j] == "GerDub" or segs[j] == "GerSub" or segs[j] == "_manual" then
           return segs[j]
+        elseif segs[j] == "Other" or segs[j] == "Others" then
+          return "Others"
         end
       end
     end
@@ -95,7 +100,7 @@ end
 -- German dub wins over German sub wins over English (either track), anything
 -- else lands in _manual for manual review instead of a catch-all folder.
 local function get_category()
-  return category_from_path() or (GerDub and "GerDub") or (GerSub and "GerSub") or (Other and "Other") or "_manual"
+  return category_from_path() or (GerDub and "GerDub") or (GerSub and "GerSub") or (Other and "Others") or "_manual"
 end
 
 -- TMDB movie linked to the file's primary episode, or nil. AniDB movie entries
