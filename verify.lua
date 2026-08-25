@@ -1,5 +1,5 @@
--- Verification harness for bainesrenamer (Lua 5.1 and 5.4)
--- Run: lua verify.lua [script.lua]  (defaults to bainesrenamer_v4.lua)
+-- Verification harness for bainesrenamer (Lua 5.1 and Lua 5.4)
+-- Run: lua verify.lua [script.lua]  (defaults to bainesrenamer_v5.lua)
 
 string.cleanspaces = function(self, char)
   return (self:match("^%s*(.-)%s*$"):gsub("%s+", char or " "))
@@ -88,7 +88,7 @@ local function run(name, stubs, checks)
   env.Language, env.AnimeType, env.EpisodeType = Language, AnimeType, EpisodeType
   env.from, env.fromNothing = from, fromNothing
   env.tmdb = { episodes = stubs.tmdb_episodes or {}, shows = stubs.tmdb_shows or {}, movies = stubs.tmdb_movies or {} }
-  local chunk = loadfile_env(arg and arg[1] or "bainesrenamer_v4.lua", env)
+  local chunk = loadfile_env(arg and arg[1] or "bainesrenamer_v5.lua", env)
   chunk()
   for _, check in ipairs(checks) do
     check(env, name)
@@ -122,16 +122,79 @@ run("GerDub single ep w/ TMDB season", {
 
 run("TMDB show folder over anidb title", {
   anime = make_anime({ id = 4324, _de = ".hack//Roots", airdate = { year = 2006 } }),
-  episodes = { make_ep(21, EpisodeType.Episode, { de = "Defeat" }) },
-  episode = make_ep(21, EpisodeType.Episode, { de = "Defeat" }),
+  episodes = { set_id(make_ep(21, EpisodeType.Episode, { de = "Defeat" }), 432421) },
+  episode = set_id(make_ep(21, EpisodeType.Episode, { de = "Defeat" }), 432421),
   file = {
     path = "/mnt/array/Downloads/_drop/roots.mkv",
     media = nil,
     anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
   },
   tmdb_shows = { { id = "8864", preferredname = ".hack", airdate = { year = 2002 } } },
-  tmdb_episodes = { { type = EpisodeType.Episode, number = 21, seasonnumber = 3, showid = "8864" } },
-}, { eq("TmdbShow", ".hack - S03E21 - Defeat", { ".hack (2002)", "Season 03 [anidbid-4324]" }, "/mnt/array/Anime/Shows/GerDub") })
+  tmdb_episodes = { { anidbepisodeids = { 432421 }, type = EpisodeType.Episode, number = 21, seasonnumber = 3, showid = "8864" } },
+}, { eq("TmdbShow", ".hack - S03E21 - Defeat", { ".hack (2002) [tmdbid-8864]", "Season 03 [anidbid-4324]" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("AniDB season entry 1 shares its TMDB show root", {
+  anime = make_anime({ id = 100, _de = "Shared Show First Entry", airdate = { year = 2015 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { de = "Erste Staffel" }), 10001) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { de = "Erste Staffel" }), 10001),
+  file = {
+    path = "/mnt/array/Downloads/_drop/shared-s1.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = { { id = "555", preferredname = "Shared Show", airdate = { year = 2015 } } },
+  tmdb_episodes = {
+    { anidbepisodeids = { 10001 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "555" },
+  },
+}, { eq("SharedRootS1", "Shared Show - S01E01 - Erste Staffel", { "Shared Show (2015) [tmdbid-555]", "Season 01 [anidbid-100]" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("AniDB season entry 2 shares its TMDB show root", {
+  anime = make_anime({ id = 200, _de = "Shared Show Second Entry", airdate = { year = 2017 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { de = "Zweite Staffel" }), 20001) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { de = "Zweite Staffel" }), 20001),
+  file = {
+    path = "/mnt/array/Downloads/_drop/shared-s2.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = { { id = "555", preferredname = "Shared Show", airdate = { year = 2015 } } },
+  tmdb_episodes = {
+    { anidbepisodeids = { 20001 }, type = EpisodeType.Episode, number = 1, seasonnumber = 2, showid = "555" },
+  },
+}, { eq("SharedRootS2", "Shared Show - S02E01 - Zweite Staffel", { "Shared Show (2015) [tmdbid-555]", "Season 02 [anidbid-200]" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("TMDB show is selected from the primary episode cross-ref", {
+  anime = make_anime({ id = 77, _de = "AniDB Mixed Entry", airdate = { year = 2019 } }),
+  episodes = { set_id(make_ep(6, EpisodeType.Episode, { de = "Folge 6" }), 2002) },
+  episode = set_id(make_ep(6, EpisodeType.Episode, { de = "Folge 6" }), 2002),
+  file = {
+    path = "/mnt/array/Downloads/_drop/mixed.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = {
+    { id = "11", preferredname = "Wrong Show", airdate = { year = 2018 } },
+    { id = "22", preferredname = "Right Show", airdate = { year = 2020 } },
+  },
+  tmdb_episodes = {
+    { anidbepisodeids = { 1001 }, type = EpisodeType.Episode, number = 6, seasonnumber = 9, showid = "11" },
+    { anidbepisodeids = { 2002 }, type = EpisodeType.Episode, number = 6, seasonnumber = 4, showid = "22" },
+  },
+}, { eq("PrimaryTmdbShow", "Right Show - S04E06 - Folge 6", { "Right Show (2020) [tmdbid-22]", "Season 04 [anidbid-77]" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("TMDB show ID survives missing show metadata", {
+  anime = make_anime({ id = 78, _de = "AniDB Fallback Title", airdate = { year = 2021 } }),
+  episodes = { set_id(make_ep(2, EpisodeType.Episode, { de = "Folge 2" }), 7802) },
+  episode = set_id(make_ep(2, EpisodeType.Episode, { de = "Folge 2" }), 7802),
+  file = {
+    path = "/mnt/array/Downloads/_drop/missing-show.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_episodes = {
+    { anidbepisodeids = { 7802 }, type = EpisodeType.Episode, number = 2, seasonnumber = 3, showid = "78000" },
+  },
+}, { eq("MissingTmdbShow", "AniDB Fallback Title - S03E02 - Folge 2", { "AniDB Fallback Title (2021) [tmdbid-78000]", "Season 03 [anidbid-78]" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("Anidb title fallback when no TMDB show", {
   anime = make_anime({ id = 4324, _de = ".hack//Roots", airdate = { year = 2006 } }),
@@ -168,7 +231,7 @@ run("Multi-episode movie -> own TMDB movie folders", {
     { id = "1002", anidbepisodeids = { 502 }, preferredname = "Shadow Skill: The Second", airdate = { year = 1996 } },
     { id = "1003", anidbepisodeids = { 503 }, preferredname = "Shadow Skill: The Third", airdate = { year = 1996 } },
   },
-}, { eq("TmdbMovieFolder", "Shadow Skill: After the Battle (1996)", { "Shadow Skill: After the Battle (1996)" }, "/mnt/array/Anime/Movies/_manual") })
+}, { eq("TmdbMovieFolder", "Shadow Skill: After the Battle (1996)", { "Shadow Skill: After the Battle (1996) [tmdbid-1001]" }, "/mnt/array/Anime/Movies/_manual") })
 
 run("Multiple episodes -> same TMDB movie keeps part numbers", {
   anime = make_anime({ id = 5611, type = AnimeType.Movie, airdate = { year = 2008 }, preferredname = "Batman: Gotham Knight", episodecounts = { Episode = 6, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
@@ -178,7 +241,7 @@ run("Multiple episodes -> same TMDB movie keeps part numbers", {
   tmdb_movies = {
     { id = "2001", anidbepisodeids = { 601, 602, 603 }, preferredname = "Batman: Gotham Knight", airdate = { year = 2008 } },
   },
-}, { eq("TmdbMovieShared", "Batman: Gotham Knight (2008) - 02", { "Batman: Gotham Knight (2008)" }, "/mnt/array/Anime/Movies/_manual") })
+}, { eq("TmdbMovieShared", "Batman: Gotham Knight (2008) - 02", { "Batman: Gotham Knight (2008) [tmdbid-2001]" }, "/mnt/array/Anime/Movies/_manual") })
 
 run("TMDB episode linked to several AniDB episodes matches by membership", {
   anime = make_anime({ id = 7, _de = "Multi Link", airdate = { year = 2021 } }),
@@ -193,7 +256,7 @@ run("TMDB episode linked to several AniDB episodes matches by membership", {
   tmdb_episodes = {
     { anidbepisodeids = { 901, 902 }, type = EpisodeType.Episode, number = 1, seasonnumber = 2, showid = "55" },
   },
-}, { eq("TmdbEpisodeShared", "Multi Link - S02E01 - Folge 1", { "Multi Link (2021)", "Season 02 [anidbid-7]" }, "/mnt/array/Anime/Shows/GerDub") })
+}, { eq("TmdbEpisodeShared", "Multi Link - S02E01 - Folge 1", { "Multi Link (2021) [tmdbid-55]", "Season 02 [anidbid-7]" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("OVA typed movie via TMDB cross-ref", {
   anime = make_anime({ id = 1208, type = AnimeType.OVA, airdate = { year = 2005 }, preferredname = "Final Fantasy VII: Advent Children", episodecounts = { Episode = 6, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
@@ -205,7 +268,7 @@ run("OVA typed movie via TMDB cross-ref", {
     { id = "59300", anidbepisodeids = { 100202 }, preferredname = "On the Way to a Smile", airdate = { year = 2009 } },
     { id = "1225938", anidbepisodeids = { 157050 }, preferredname = "Dirge of Cerberus", airdate = { year = 2006 } },
   },
-}, { eq("OvaMovie", "Final Fantasy VII: Advent Children (2005)", { "Final Fantasy VII: Advent Children (2005)" }, "/mnt/array/Anime/Movies/_manual") })
+}, { eq("OvaMovie", "Final Fantasy VII: Advent Children (2005)", { "Final Fantasy VII: Advent Children (2005) [tmdbid-647]" }, "/mnt/array/Anime/Movies/_manual") })
 
 run("OVA movie episode without TMDB link falls back", {
   anime = make_anime({ id = 1208, type = AnimeType.OVA, airdate = { year = 2005 }, preferredname = "Final Fantasy VII: Advent Children", episodecounts = { Episode = 6, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
@@ -238,12 +301,12 @@ run("TV show normal ep stays a show despite movie-linked specials", {
     anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
   },
   tmdb_shows = { { id = "21296", preferredname = "Sherlock Hound", airdate = { year = 1984 } } },
-  tmdb_episodes = { { type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "21296" } },
+  tmdb_episodes = { { anidbepisodeids = { 144470 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "21296" } },
   tmdb_movies = {
     { id = "332324", anidbepisodeids = { 144477 }, preferredname = "Sherlock Hound: The Hound of the Baskervilles", airdate = { year = 1984 } },
     { id = "674707", anidbepisodeids = { 181241 }, preferredname = "Sherlock Hound: The Emerald Coronet", airdate = { year = 1984 } },
   },
-}, { eq("SherlockShowEp", "Sherlock Hound - S01E01 - Eine raetselhafte Entfuehrung", { "Sherlock Hound (1984)", "Season 01 [anidbid-617]" }, "/mnt/array/Anime/Shows/GerDub") })
+}, { eq("SherlockShowEp", "Sherlock Hound - S01E01 - Eine raetselhafte Entfuehrung", { "Sherlock Hound (1984) [tmdbid-21296]", "Season 01 [anidbid-617]" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("TV show special with TMDB movie link becomes a movie", {
   anime = make_anime({ id = 617, type = AnimeType.TVSeries, _de = "Die Abenteuer des Sherlock Holmes", airdate = { year = 1984 } }),
@@ -258,7 +321,7 @@ run("TV show special with TMDB movie link becomes a movie", {
     { id = "332324", anidbepisodeids = { 144477 }, preferredname = "Sherlock Hound: The Hound of the Baskervilles", airdate = { year = 1984 } },
     { id = "674707", anidbepisodeids = { 181241 }, preferredname = "Sherlock Hound: The Emerald Coronet", airdate = { year = 1984 } },
   },
-}, { eq("SherlockMovieSpecial", "Sherlock Hound: The Hound of the Baskervilles (1984) - Special 01", { "Sherlock Hound: The Hound of the Baskervilles (1984)", "Specials" }, "/mnt/array/Anime/Movies/GerDub") })
+}, { eq("SherlockMovieSpecial", "Sherlock Hound: The Hound of the Baskervilles (1984) - Special 01", { "Sherlock Hound: The Hound of the Baskervilles (1984) [tmdbid-332324]", "Specials" }, "/mnt/array/Anime/Movies/GerDub") })
 
 run("Movie-typed entry: movie ep gets its own TMDB movie folder", {
   anime = make_anime({ id = 12277, type = AnimeType.Movie, _de = "Cyborg 009: Call of Justice", airdate = { year = 2016 }, episodecounts = { Episode = 3, Other = 12, Special = 0, Trailer = 0, Credits = 0, Parody = 0 } }),
@@ -278,7 +341,7 @@ run("Movie-typed entry: movie ep gets its own TMDB movie folder", {
     { anidbepisodeids = { 189696 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "70178" },
     { anidbepisodeids = { 189695 }, type = EpisodeType.Episode, number = 2, seasonnumber = 1, showid = "70178" },
   },
-}, { eq("CyborgMovie", "Cyborg 009: Call of Justice 1 (2016)", { "Cyborg 009: Call of Justice 1 (2016)" }, "/mnt/array/Anime/Movies/GerDub") })
+}, { eq("CyborgMovie", "Cyborg 009: Call of Justice 1 (2016)", { "Cyborg 009: Call of Justice 1 (2016) [tmdbid-419095]" }, "/mnt/array/Anime/Movies/GerDub") })
 
 run("Movie-typed entry: show-linked TV ep goes to Shows", {
   anime = make_anime({ id = 12277, type = AnimeType.Movie, _de = "Cyborg 009: Call of Justice", airdate = { year = 2016 }, episodecounts = { Episode = 3, Other = 12, Special = 0, Trailer = 0, Credits = 0, Parody = 0 } }),
@@ -297,7 +360,7 @@ run("Movie-typed entry: show-linked TV ep goes to Shows", {
   tmdb_movies = {
     { id = "419095", anidbepisodeids = { 179015 }, preferredname = "Cyborg 009: Call of Justice 1", airdate = { year = 2016 } },
   },
-}, { eq("CyborgShowEp", "Cyborg 009: Call of Justice - S01E01 - Folge 1", { "Cyborg 009: Call of Justice (2016)", "Season 01 [anidbid-12277]" }, "/mnt/array/Anime/Shows/GerDub") })
+}, { eq("CyborgShowEp", "Cyborg 009: Call of Justice - S01E01 - Folge 1", { "Cyborg 009: Call of Justice (2016) [tmdbid-70178]", "Season 01 [anidbid-12277]" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("Movie with year", {
   anime = make_anime({ id = 5, type = AnimeType.Movie, airdate = { year = 1988 }, preferredname = "Movie Title", episodecounts = { Episode = 1, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
@@ -345,7 +408,7 @@ run("Special-only -> Specials", {
   file = { path = "/mnt/array/Downloads/_drop/x.mkv", media = nil, anidb = { media = { dublanguages = { "de" }, sublanguages = {} } } },
 }, { eq("Special", "Series X - S00E01", { "Series X (2021)", "Specials" }, "/mnt/array/Anime/Shows/GerDub") })
 
-run("English audio only -> Other (not _manual)", {
+run("English audio only -> Others (not _manual)", {
   anime = make_anime({ _de = "Series X" }),
   episodes = { make_ep(1, EpisodeType.Episode) },
   episode = make_ep(1, EpisodeType.Episode),
@@ -354,7 +417,7 @@ run("English audio only -> Other (not _manual)", {
     media = { audio = { { language = "en" } }, sublanguages = {} },
     anidb = nil,
   },
-}, { eq("EngAudio", "Series X - S01E01", { "Series X (2021)", "Season 01 [anidbid-3]" }, "/mnt/array/Anime/Shows/Other") })
+}, { eq("EngAudio", "Series X - S01E01", { "Series X (2021)", "Season 01 [anidbid-3]" }, "/mnt/array/Anime/Shows/Others") })
 
 run("_manual path preserved over GerDub media", {
   anime = make_anime({ _de = "Series X" }),
@@ -378,6 +441,24 @@ run("byte truncation stays in limits", {
   assert(#e.subfolder[1] <= 255, name .. " show folder > 255 bytes: " .. #e.subfolder[1])
   assert(e.subfolder[1]:match("%(2021%)$"), name .. " year missing: " .. e.subfolder[1])
   assert(e.subfolder[2]:match("%[anidbid%-3%]$"), name .. " season anidbid tag missing: " .. e.subfolder[2])
+end })
+
+run("TMDB root tag survives byte truncation", {
+  anime = make_anime({ id = 77, _de = "Fallback", airdate = { year = 2022 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode), 7701) },
+  episode = set_id(make_ep(1, EpisodeType.Episode), 7701),
+  file = { path = "/mnt/array/Downloads/_drop/long.mkv", media = nil, anidb = nil },
+  tmdb_shows = { { id = "987654321", preferredname = string.rep("Ä", 160), airdate = { year = 2022 } } },
+  tmdb_episodes = {
+    { anidbepisodeids = { 7701 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "987654321" },
+  },
+}, { function(e, name)
+  assert(e.filename == string.rep("Ä", 38) .. "... - S01E01", name .. " filename mismatch: " .. e.filename)
+  assert(e.destination == "/mnt/array/Anime/Shows/_manual", name .. " destination: got '" .. e.destination .. "'")
+  assert(#e.subfolder == 2, name .. " subfolder count: got " .. #e.subfolder .. " want 2")
+  assert(#e.subfolder[1] <= 255, name .. " show folder > 255 bytes: " .. #e.subfolder[1])
+  assert(e.subfolder[1]:match("%(2022%) %[tmdbid%-987654321%]$"), name .. " TMDB tag missing: " .. e.subfolder[1])
+  assert(e.subfolder[2] == "Season 01 [anidbid-77]", name .. " season folder mismatch: " .. e.subfolder[2])
 end })
 
 print(string.format("%d checks passed", passed))
