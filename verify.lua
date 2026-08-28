@@ -7,7 +7,7 @@ end
 
 local Language = { German = "de", English = "en" }
 local AnimeType = { Movie = "Movie", OVA = "OVA", TVSeries = "TVSeries" }
-local EpisodeType = { Episode = "Episode", Special = "Special", Trailer = "Trailer", Credits = "Credits", Other = "Other" }
+local EpisodeType = { Episode = "Episode", Special = "Special", Trailer = "Trailer", Credits = "Credits", Other = "Other", Parody = "Parody" }
 
 local function linq(list)
   return {
@@ -212,14 +212,96 @@ run("Movie trailer gets type tag", {
   episodes = { make_ep(1, EpisodeType.Trailer) },
   episode = make_ep(1, EpisodeType.Trailer),
   file = { path = "/mnt/array/Downloads/_drop/t.mkv", media = nil, anidb = nil },
-}, { eq("MovieTrailer", "Dirty Pair (1987) - Trailer 01", { "Dirty Pair (1987) [anidbid-882]", "Trailers" }, "/mnt/array/Anime/Movies/_manual") })
+}, { eq("MovieTrailer", "Dirty Pair (1987) - T01", { "Dirty Pair (1987) [anidbid-882]", "Extras" }, "/mnt/array/Anime/Movies/_manual") })
 
 run("Movie special gets type tag", {
   anime = make_anime({ id = 882, type = AnimeType.Movie, airdate = { year = 1987 }, preferredname = "Dirty Pair", episodecounts = { Episode = 1, Special = 2, Trailer = 2, Credits = 0, Other = 0, Parody = 0 } }),
   episodes = { make_ep(2, EpisodeType.Special) },
   episode = make_ep(2, EpisodeType.Special),
   file = { path = "/mnt/array/Downloads/_drop/s.mkv", media = nil, anidb = nil },
-}, { eq("MovieSpecial", "Dirty Pair (1987) - Special 02", { "Dirty Pair (1987) [anidbid-882]", "Specials" }, "/mnt/array/Anime/Movies/_manual") })
+}, { eq("MovieSpecial", "Dirty Pair (1987) - S02", { "Dirty Pair (1987) [anidbid-882]", "Extras" }, "/mnt/array/Anime/Movies/_manual") })
+
+run("Movie extra without episode cross-ref uses sole TMDB root", {
+  anime = make_anime({ id = 882, type = AnimeType.Movie, airdate = { year = 1987 }, preferredname = "Dirty Pair", episodecounts = { Episode = 1, Special = 2, Trailer = 2, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Trailer), 88201) },
+  episode = set_id(make_ep(1, EpisodeType.Trailer), 88201),
+  file = { path = "/mnt/array/Downloads/_drop/t.mkv", media = nil, anidb = nil },
+  tmdb_movies = {
+    { id = "999", anidbepisodeids = {}, preferredname = "Dirty Pair", airdate = { year = 1987 } },
+  },
+}, { eq("MovieExtraTmdb", "Dirty Pair (1987) - T01", { "Dirty Pair (1987) [tmdbid-999]", "Extras" }, "/mnt/array/Anime/Movies/_manual") })
+
+run("Show opening without episode cross-ref uses sole TMDB root", {
+  anime = make_anime({ id = 15561, _de = "World's End Harem", airdate = { year = 2021 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Credits, { de = "Opening" }), 1556101) },
+  episode = set_id(make_ep(1, EpisodeType.Credits, { de = "Opening" }), 1556101),
+  file = {
+    path = "/mnt/array/Anime/Shows/GerDub/World's End Harem (2021)/Extras/opening.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = { { id = "103409", preferredname = "World’s End Harem", airdate = { year = 2022 } } },
+}, { eq("ShowOpening", "World’s End Harem - C01 - Opening", { "World’s End Harem (2022) [tmdbid-103409]", "Extras" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("Show special without episode cross-ref uses sole TMDB root", {
+  anime = make_anime({ id = 15561, _de = "World's End Harem", airdate = { year = 2021 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Special, { de = "Bonusfolge" }), 1556199) },
+  episode = set_id(make_ep(1, EpisodeType.Special, { de = "Bonusfolge" }), 1556199),
+  file = {
+    path = "/mnt/array/Anime/Shows/GerDub/World's End Harem (2021)/Specials/bonus.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = { { id = "103409", preferredname = "World’s End Harem", airdate = { year = 2022 } } },
+}, { eq("ShowSpecial", "World’s End Harem - S01 - Bonusfolge", { "World’s End Harem (2022) [tmdbid-103409]", "Extras" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("Show trailer uses T prefix and type-specific padding", {
+  anime = make_anime({ _de = "Series X", episodecounts = { Episode = 12, Special = 0, Trailer = 120, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { make_ep(7, EpisodeType.Trailer, { de = "Vorschau" }) },
+  episode = make_ep(7, EpisodeType.Trailer, { de = "Vorschau" }),
+  file = { path = "/mnt/array/Downloads/_drop/trailer.mkv", media = nil, anidb = { media = { dublanguages = { "de" }, sublanguages = {} } } },
+}, { eq("TrailerMarker", "Series X - T007 - Vorschau", { "Series X (2021)", "Extras" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("Show parody uses P prefix", {
+  anime = make_anime({ _de = "Series X" }),
+  episodes = { make_ep(2, EpisodeType.Parody, { de = "Parodie" }) },
+  episode = make_ep(2, EpisodeType.Parody, { de = "Parodie" }),
+  file = { path = "/mnt/array/Downloads/_drop/parody.mkv", media = nil, anidb = { media = { dublanguages = { "de" }, sublanguages = {} } } },
+}, { eq("ParodyMarker", "Series X - P02 - Parodie", { "Series X (2021)", "Extras" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("Show other uses O prefix", {
+  anime = make_anime({ _de = "Series X" }),
+  episodes = { make_ep(3, EpisodeType.Other, { de = "Sonstiges" }) },
+  episode = make_ep(3, EpisodeType.Other, { de = "Sonstiges" }),
+  file = { path = "/mnt/array/Downloads/_drop/other.mkv", media = nil, anidb = { media = { dublanguages = { "de" }, sublanguages = {} } } },
+}, { eq("OtherMarker", "Series X - O03 - Sonstiges", { "Series X (2021)", "Extras" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("Regular episode without cross-ref keeps AniDB fallback", {
+  anime = make_anime({ id = 15561, _de = "World's End Harem", airdate = { year = 2021 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { de = "Folge 1" }), 1556102) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { de = "Folge 1" }), 1556102),
+  file = {
+    path = "/mnt/array/Downloads/_drop/episode.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = { { id = "103409", preferredname = "World’s End Harem", airdate = { year = 2022 } } },
+}, { eq("RegularFallback", "World's End Harem - S01E01 - Folge 1", { "World's End Harem (2021)", "Season 01 [anidbid-15561]" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("Ambiguous show extra keeps AniDB fallback", {
+  anime = make_anime({ id = 88, _de = "Mixed Show", airdate = { year = 2020 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Credits, { de = "Opening" }), 8801) },
+  episode = set_id(make_ep(1, EpisodeType.Credits, { de = "Opening" }), 8801),
+  file = {
+    path = "/mnt/array/Downloads/_drop/opening.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = {
+    { id = "881", preferredname = "First Show", airdate = { year = 2020 } },
+    { id = "882", preferredname = "Second Show", airdate = { year = 2021 } },
+  },
+}, { eq("AmbiguousExtra", "Mixed Show - C01 - Opening", { "Mixed Show (2020)", "Extras" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("Multi-episode movie -> own TMDB movie folders", {
   anime = make_anime({ id = 348, type = AnimeType.Movie, airdate = { year = 1996 }, preferredname = "Shadow Skill (1996)", episodecounts = { Episode = 3, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
@@ -321,7 +403,7 @@ run("TV show special with TMDB movie link becomes a movie", {
     { id = "332324", anidbepisodeids = { 144477 }, preferredname = "Sherlock Hound: The Hound of the Baskervilles", airdate = { year = 1984 } },
     { id = "674707", anidbepisodeids = { 181241 }, preferredname = "Sherlock Hound: The Emerald Coronet", airdate = { year = 1984 } },
   },
-}, { eq("SherlockMovieSpecial", "Sherlock Hound: The Hound of the Baskervilles (1984) - Special 01", { "Sherlock Hound: The Hound of the Baskervilles (1984) [tmdbid-332324]", "Specials" }, "/mnt/array/Anime/Movies/GerDub") })
+}, { eq("SherlockMovieSpecial", "Sherlock Hound: The Hound of the Baskervilles (1984) - S01", { "Sherlock Hound: The Hound of the Baskervilles (1984) [tmdbid-332324]", "Extras" }, "/mnt/array/Anime/Movies/GerDub") })
 
 run("Movie-typed entry: movie ep gets its own TMDB movie folder", {
   anime = make_anime({ id = 12277, type = AnimeType.Movie, _de = "Cyborg 009: Call of Justice", airdate = { year = 2016 }, episodecounts = { Episode = 3, Other = 12, Special = 0, Trailer = 0, Credits = 0, Parody = 0 } }),
@@ -399,14 +481,14 @@ run("Episode range + special concat", {
   },
   episode = make_ep(1, EpisodeType.Episode, { de = "Teil 1" }),
   file = { path = "/mnt/array/Downloads/_drop/x.mkv", media = nil, anidb = { media = { dublanguages = { "de" }, sublanguages = {} } } },
-}, { eq("Range", "Series X - S01E01-E02S00E01 - Teil 1/Teil 2", { "Series X (2021)", "Season 01 [anidbid-3]" }, "/mnt/array/Anime/Shows/GerDub") })
+}, { eq("Range", "Series X - S01E01-E02S01 - Teil 1/Teil 2", { "Series X (2021)", "Season 01 [anidbid-3]" }, "/mnt/array/Anime/Shows/GerDub") })
 
-run("Special-only -> Specials", {
+run("Special-only -> Extras", {
   anime = make_anime({ _de = "Series X" }),
   episodes = { make_ep(1, EpisodeType.Special) },
   episode = make_ep(1, EpisodeType.Special),
   file = { path = "/mnt/array/Downloads/_drop/x.mkv", media = nil, anidb = { media = { dublanguages = { "de" }, sublanguages = {} } } },
-}, { eq("Special", "Series X - S00E01", { "Series X (2021)", "Specials" }, "/mnt/array/Anime/Shows/GerDub") })
+}, { eq("Special", "Series X - S01", { "Series X (2021)", "Extras" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("English audio only -> Others (not _manual)", {
   anime = make_anime({ _de = "Series X" }),

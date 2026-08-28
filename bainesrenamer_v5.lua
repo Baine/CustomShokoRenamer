@@ -16,7 +16,7 @@
 -- TARGET TREE (matches tofa's naming scheme, docs.tofa.tv/name-your-media)
 --   Movies:  <import folder>/<title> (year) [tmdbid-id]/<title> (year).ext
 --   Shows:   <import folder>/<title> (year) [tmdbid-id]/Season NN [anidbid-id]/<title> - SxxExx - name.ext
---            <import folder>/<title> (year) [id]/{Trailers|Specials|Extras}/...
+--            <import folder>/<title> (year) [id]/Extras/...
 --
 --     base        Anime (safe) or Hentai (anime.restricted)
 --     media type  Movies (AniDB type Movie) or Shows (everything else)
@@ -29,7 +29,7 @@
 --                 movies without a TMDB cross-reference
 --     [tmdbid-id]  TMDB ID tag: on the root folder for TMDB-linked movies and
 --                 shows, so Silo can identify the title without guessing
---     content     Trailers | Specials | Extras (see get_content_folder)
+--     content     Extras (see get_content_folder)
 --
 --     Example: Anime/Shows/GerDub/Tokidoki Bosotto to Roshippu to (2024) [tmdbid-12345]/
 --              Season 01 [anidbid-11061]/Tokidoki Bosotto to Roshippu to - S01E01 - Folge 1.mkv
@@ -178,13 +178,16 @@ local function get_tmdb_show()
 end
 
 local tmdb_show = get_tmdb_show()
+local root_tmdb_movie = tmdb_movie
+local root_tmdb_show = tmdb_show
+local root_tmdb_show_id = tmdb_episode and tmdb_episode.showid or nil
 
 -- Display name of the series: the TMDB show name when the file has TMDB
 -- cross-references (Sign, Twilight and Roots all belong to ".hack"), else the
 -- AniDB title. Used for the root folder AND the file prefix, so the file
 -- always names the show it lives under.
 local function get_show_name()
-  local s = tmdb_show
+  local s = root_tmdb_show
   if s then
     local name = s.preferredname or s.defaultname
     if name then return name end
@@ -200,7 +203,7 @@ end
 -- have no season level.
 local function get_anime_folder_name(movie)
   if movie then
-    local m = tmdb_movie
+    local m = root_tmdb_movie
     if m then
       local name = m.preferredname or m.defaultname or animename
       local suffix = m.airdate and not name:match("%(%d%d%d%d%)$")
@@ -209,13 +212,13 @@ local function get_anime_folder_name(movie)
       return truncate_bytes(name, 255 - #suffix - #tag) .. suffix .. tag
     end
   else
-    local s = tmdb_show
-    if tmdb_episode and tmdb_episode.showid then
+    local s = root_tmdb_show
+    if root_tmdb_show_id then
       local name = s and (s.preferredname or s.defaultname) or animename
       name = name or animename
       local suffix = s and s.airdate and not name:match("%(%d%d%d%d%)$")
           and (" (" .. tostring(s.airdate.year) .. ")") or get_year_suffix(name)
-      local tag = " [tmdbid-" .. tostring(tmdb_episode.showid) .. "]"
+      local tag = " [tmdbid-" .. tostring(root_tmdb_show_id) .. "]"
       return truncate_bytes(name, 255 - #suffix - #tag) .. suffix .. tag
     end
   end
@@ -267,19 +270,35 @@ local function format_marker(season, num, pad)
   return "S" .. string.format("%02d", season) .. "E" .. string.format("%0" .. pad .. "d", num)
 end
 
--- Consecutive episodes of one type collapse into a range: S01E01-E02.
--- Season is only meaningful for regular episodes; specials etc. use S00.
+local marker_prefixes = {
+  [EpisodeType.Credits] = "C",
+  [EpisodeType.Special] = "S",
+  [EpisodeType.Trailer] = "T",
+  [EpisodeType.Parody] = "P",
+  [EpisodeType.Other] = "O",
+}
+
+local function format_group_marker(t, season, num, pad)
+  if t == EpisodeType.Episode then return format_marker(season, num, pad) end
+  return (marker_prefixes[t] or "O") .. string.format("%0" .. pad .. "d", num)
+end
+
+-- Consecutive episodes of one type collapse into a range: S01E01-E02 or
+-- C01-C02. Regular episodes use TMDB season markers; other AniDB types retain
+-- their established C/S/T/P/O prefixes.
 local function format_group(t, nums)
   table.sort(nums)
   local pad = math.max(#tostring(anime.episodecounts[t] or 0), 2)
   local season = t == EpisodeType.Episode and get_season(t, nums[1]) or 0
+  local range_prefix = t == EpisodeType.Episode and "E" or (marker_prefixes[t] or "O")
   local parts = {}
   local first = nums[1]
   local prev = first
   for i = 2, #nums + 1 do
     local n = nums[i]
     if not n or n ~= prev + 1 then
-      parts[#parts + 1] = format_marker(season, first, pad) .. (first == prev and "" or "-E" .. string.format("%0" .. pad .. "d", prev))
+      parts[#parts + 1] = format_group_marker(t, season, first, pad)
+          .. (first == prev and "" or "-" .. range_prefix .. string.format("%0" .. pad .. "d", prev))
       first = n
     end
     prev = n
@@ -288,9 +307,9 @@ local function format_group(t, nums)
 end
 
 -- Consecutive episodes of the same type share a group (S01E01-E02); a file
--- carrying several types concatenates the groups (S01E01-E02S00E01). A file
+-- carrying several types concatenates the groups (S01E01-E02S01). A file
 -- without regular episodes whose primary episode has a TMDB cross-reference
--- takes that TMDB season and number instead of the S00 of its AniDB type.
+-- takes that TMDB season and number instead of the marker of its AniDB type.
 -- ponytail: multi-episode files of that kind use only the primary episode.
 local function get_marker()
   local te = tmdb_episode
@@ -327,8 +346,9 @@ local function get_episode_names()
   return table.concat(names, "/")
 end
 
--- Only files without a regular episode leave the main folder; they land in
--- Trailers, Specials or a general Extras folder (credits, parodies, ...).
+-- Only files without a regular episode leave the main folder. Specials,
+-- openings, endings, trailers and all other non-episode content share Extras;
+-- their C/S/T/P/O markers keep equal AniDB numbers distinct.
 -- tofa treats these folder names as extras and keeps them out of the library.
 -- An episode with a TMDB cross-reference is a real show episode and stays in
 -- its season folder, whatever AniDB typed it as.
@@ -337,13 +357,27 @@ local function get_content_folder()
   for i, ep in ipairs(episodes) do
     if ep.type == EpisodeType.Episode then return nil end
   end
-  if episode.type == EpisodeType.Trailer then return "Trailers" end
-  if episode.type == EpisodeType.Special then return "Specials" end
   return "Extras"
 end
 
 local content_folder = get_content_folder()
 local movie = is_movie()
+
+-- Extras and specials often have no episode-level TMDB cross-reference. When
+-- the AniDB entry has exactly one TMDB movie/show, it is still unambiguous and
+-- should share the same TMDB root as the regular content. Multiple candidates
+-- deliberately keep the AniDB fallback instead of choosing the wrong root.
+if content_folder then
+  if not root_tmdb_movie and tmdb and tmdb.movies and #tmdb.movies == 1 then
+    root_tmdb_movie = tmdb.movies[1]
+  end
+  if not root_tmdb_show and tmdb and tmdb.shows and #tmdb.shows == 1 then
+    root_tmdb_show = tmdb.shows[1]
+  end
+  if not root_tmdb_show_id and root_tmdb_show then
+    root_tmdb_show_id = root_tmdb_show.id
+  end
+end
 
 if movie then
   -- tofa movies carry only the title and year; an episode marker in a movie
@@ -354,8 +388,8 @@ if movie then
   -- own TMDB movie the file gets that movie's name and folder; the part number
   -- remains only for episodes that share a folder. The same applies to extras:
   -- two trailers of a movie would otherwise both be "Title (year)" inside the
-  -- Trailers folder.
-  local m = tmdb_movie
+  -- Extras folder.
+  local m = root_tmdb_movie
   local title = animename
   local suffix = nil
   if m then
@@ -368,10 +402,10 @@ if movie then
   end
   if not suffix then suffix = get_year_suffix(title) end
   if content_folder then
-    local tagmap = { Trailers = "Trailer", Specials = "Special" }
-    local tag = tagmap[content_folder] or "Extra"
     local num = episode and episode.number or 0
-    suffix = suffix .. " - " .. tag .. " " .. string.format("%02d", num)
+    local t = episode and episode.type or EpisodeType.Other
+    local pad = math.max(#tostring(anime.episodecounts[t] or 0), 2)
+    suffix = suffix .. " - " .. (marker_prefixes[t] or "O") .. string.format("%0" .. pad .. "d", num)
   elseif episode and episode.number then
     local need_part
     if m then
