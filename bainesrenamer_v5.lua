@@ -479,6 +479,14 @@ end
 local content_folder = get_content_folder()
 local movie = is_movie()
 
+-- A Special with its own episode-level TMDB movie cross-reference is not an
+-- extra of the parent movie/show: TMDB treats it as a standalone movie. Keep
+-- the Extras fallback below for unlinked specials and sole-candidate matches.
+if movie and tmdb_movie and primary_episode
+    and primary_episode.type == EpisodeType.Special then
+  content_folder = nil
+end
+
 -- Extras and specials often have no episode-level TMDB cross-reference. When
 -- the AniDB entry has exactly one TMDB movie/show, it is still unambiguous and
 -- should share the same TMDB root as the regular content. Multiple candidates

@@ -265,6 +265,20 @@ run("Movie extra without episode cross-ref uses sole TMDB root", {
   },
 }, { eq("MovieExtraTmdb", "Dirty Pair (1987) - T01 [anidbid-882]", { "Dirty Pair (1987) [tmdbid-999]", "Extras" }, "/mnt/array/Anime/Movies/_manual") })
 
+run("Movie special with its own TMDB movie link is standalone", {
+  anime = make_anime({ id = 8694, type = AnimeType.Movie, _de = "A Certain Magical Index: The Movie - The Miracle of Endymion", airdate = { year = 2013 }, episodecounts = { Episode = 1, Special = 1, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Special), 869401) },
+  episode = set_id(make_ep(1, EpisodeType.Special), 869401),
+  file = {
+    path = "/mnt/array/Downloads/_drop/omake.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = {}, sublanguages = { "de" } } },
+  },
+  tmdb_movies = {
+    { id = "672553", anidbepisodeids = { 869401 }, preferredname = "A Certain Magical Index: The Movie - The Miracle of Endymion - Omake", airdate = { year = 2013 } },
+  },
+}, { eq("StandaloneOmake", "A Certain Magical Index: The Movie - The Miracle of Endymion - Omake (2013)", { "A Certain Magical Index: The Movie - The Miracle of Endymion - Omake (2013) [tmdbid-672553]" }, "/mnt/array/Anime/Movies/GerSub") })
+
 run("Show opening without episode cross-ref uses sole TMDB root", {
   anime = make_anime({ id = 15561, _de = "World's End Harem", airdate = { year = 2021 } }),
   episodes = { set_id(make_ep(1, EpisodeType.Credits, { de = "Opening" }), 1556101) },
@@ -424,7 +438,7 @@ run("TV show normal ep stays a show despite movie-linked specials", {
   },
 }, { eq("SherlockShowEp", "Sherlock Hound - S01E01 - Eine raetselhafte Entfuehrung", { "Sherlock Hound (1984) [tmdbid-21296]", "Season 01 [anidbid-617]" }, "/mnt/array/Anime/Shows/GerDub") })
 
-run("TV show special with TMDB movie link becomes a movie", {
+run("TV show special with TMDB movie link becomes a standalone movie", {
   anime = make_anime({ id = 617, type = AnimeType.TVSeries, _de = "Die Abenteuer des Sherlock Holmes", airdate = { year = 1984 } }),
   episodes = { set_id(make_ep(1, EpisodeType.Special, { de = "Der Hund von Baskerville" }), 144477) },
   episode = set_id(make_ep(1, EpisodeType.Special, { de = "Der Hund von Baskerville" }), 144477),
@@ -437,7 +451,7 @@ run("TV show special with TMDB movie link becomes a movie", {
     { id = "332324", anidbepisodeids = { 144477 }, preferredname = "Sherlock Hound: The Hound of the Baskervilles", airdate = { year = 1984 } },
     { id = "674707", anidbepisodeids = { 181241 }, preferredname = "Sherlock Hound: The Emerald Coronet", airdate = { year = 1984 } },
   },
-}, { eq("SherlockMovieSpecial", "Sherlock Hound: The Hound of the Baskervilles (1984) - S01 [anidbid-617]", { "Sherlock Hound: The Hound of the Baskervilles (1984) [tmdbid-332324]", "Extras" }, "/mnt/array/Anime/Movies/GerDub") })
+}, { eq("SherlockMovieSpecial", "Sherlock Hound: The Hound of the Baskervilles (1984)", { "Sherlock Hound: The Hound of the Baskervilles (1984) [tmdbid-332324]" }, "/mnt/array/Anime/Movies/GerDub") })
 
 run("Movie-typed entry: movie ep gets its own TMDB movie folder", {
   anime = make_anime({ id = 12277, type = AnimeType.Movie, _de = "Cyborg 009: Call of Justice", airdate = { year = 2016 }, episodecounts = { Episode = 3, Other = 12, Special = 0, Trailer = 0, Credits = 0, Parody = 0 } }),
