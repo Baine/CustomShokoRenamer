@@ -648,6 +648,35 @@ run("Unlinked episode in a mixed file keeps AniDB season fallback", {
   },
 }, { eq("MixedLinked", "One Piece - S09E08S01E0327", { "One Piece (1999) [tmdbid-9999]", "Season 09 [anidbid-69]" }, "/mnt/array/Anime/Shows/_manual") })
 
+run("Unlinked primary Other uses the regular episode TMDB root", {
+  anime = make_anime({
+    id = 7309, restricted = true, _de = "Shinshou Genmukan", airdate = { year = 2010 },
+    episodecounts = { Episode = 4, Special = 0, Trailer = 0, Credits = 0, Other = 2, Parody = 0 },
+  }),
+  episodes = {
+    set_id(make_ep(1, EpisodeType.Other, { de = "Bonus" }), 730901),
+    set_id(make_ep(1, EpisodeType.Episode, { de = "Teil 1" }), 730911),
+    set_id(make_ep(2, EpisodeType.Episode, { de = "Teil 2" }), 730912),
+  },
+  episode = set_id(make_ep(1, EpisodeType.Other, { de = "Bonus" }), 730901),
+  file = {
+    path = "/mnt/array/Downloads/_drop/shinshou.mkv", media = nil,
+    anidb = { media = { dublanguages = {}, sublanguages = { "de" } } },
+  },
+  tmdb_shows = {
+    { id = "100907", preferredname = "Genmukan: The Sin of Desire & Shame", airdate = { year = 2003 } },
+  },
+  tmdb_episodes = {
+    { id = 7101, anidbepisodeids = { 730911 }, type = EpisodeType.Episode, number = 1, seasonnumber = 2, showid = "100907" },
+    { id = 7102, anidbepisodeids = { 730912 }, type = EpisodeType.Episode, number = 2, seasonnumber = 2, showid = "100907" },
+  },
+}, { eq(
+  "PrimaryOtherFallback",
+  "Genmukan: The Sin of Desire & Shame - S02E01-E02O01 - Bonus/Teil 1/Teil 2",
+  { "Genmukan: The Sin of Desire & Shame (2003) [tmdbid-100907]", "Season 02 [anidbid-7309]" },
+  "/mnt/array/Hentai/Shows/GerSub"
+) })
+
 run("Multi-episode movie Extra keeps the marker range", {
   anime = make_anime({ id = 20, type = AnimeType.Movie, preferredname = "Movie X", episodecounts = { Episode = 1, Special = 0, Trailer = 2, Credits = 0, Other = 0, Parody = 0 } }),
   episodes = { make_ep(1, EpisodeType.Trailer), make_ep(2, EpisodeType.Trailer) },

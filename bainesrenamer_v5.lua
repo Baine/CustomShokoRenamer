@@ -178,10 +178,37 @@ local function get_tmdb_episode(ep)
   return match
 end
 
+-- Only normal AniDB episodes use TMDB numbering. The one intentional exception
+-- is an AniDB "Other" which TMDB identifies as a real episode in a regular
+-- season (Cyborg 009). Specials/credits/trailers remain Extras with C/S/T/P/O.
+local function is_regular_content(ep, te)
+  if ep.type == EpisodeType.Episode then return true end
+  return ep.type == EpisodeType.Other and te and te.type == EpisodeType.Episode
+      and (te.seasonnumber or 1) > 0
+end
+
+-- LuaRenamer currently puts AniDB Other entries first when it chooses the
+-- primary episode. If that Other has no cross-reference, use an unambiguous
+-- regular TMDB episode from the same file instead. Conflicting shows
+-- still fall back to AniDB rather than depending on episode list order.
+local function get_file_tmdb_episode()
+  local primary = get_tmdb_episode(episode)
+  if primary then return primary end
+  local match = nil
+  for i, ep in ipairs(episodes) do
+    local te = get_tmdb_episode(ep)
+    if te and is_regular_content(ep, te) then
+      if match and tostring(match.showid) ~= tostring(te.showid) then return nil end
+      match = match or te
+    end
+  end
+  return match
+end
+
 -- Resolve the current file's cross-references once. A renamer invocation is
 -- scoped to one file, and all later decisions must use the same match.
 local tmdb_movie = get_tmdb_movie()
-local tmdb_episode = get_tmdb_episode()
+local tmdb_episode = get_file_tmdb_episode()
 
 -- AniDB type decides, but TMDB knows better: entries AniDB types as OVA are
 -- often movies (Final Fantasy VII: Advent Children is OVA on AniDB, a movie on
@@ -277,15 +304,6 @@ local function get_anime_folder_name(movie)
   return truncate_bytes(animename, 255 - #suffix) .. suffix
 end
 
--- Only normal AniDB episodes use TMDB numbering. The one intentional exception
--- is an AniDB "Other" which TMDB identifies as a real episode in a regular
--- season (Cyborg 009). Specials/credits/trailers remain Extras with C/S/T/P/O.
-local function is_regular_content(ep, te)
-  if ep.type == EpisodeType.Episode then return true end
-  return ep.type == EpisodeType.Other and te and te.type == EpisodeType.Episode
-      and (te.seasonnumber or 1) > 0
-end
-
 -- The Season folder mirrors TMDB's season numbering for the file's regular
 -- episode; a file with only specials/trailers never reaches this function.
 -- An episode with a TMDB cross-reference uses that TMDB season directly, so a
@@ -294,8 +312,9 @@ end
 local function get_primary_season()
   for i, ep in ipairs(episodes) do
     local te = get_tmdb_episode(ep)
-    if is_regular_content(ep, te) then
-      return te and te.seasonnumber or 1
+    if is_regular_content(ep, te) and te and root_tmdb_show_id
+        and tostring(te.showid) == tostring(root_tmdb_show_id) then
+      return te.seasonnumber or 1
     end
   end
   return 1
@@ -362,18 +381,19 @@ end
 -- S09E08). Multi-episode files group consecutive TMDB numbers into ranges;
 -- unlinked episodes and Extras retain the AniDB type/number fallback.
 local function get_marker()
-  local groups, order = {}, {}
+  local groups, regular_order, extra_order = {}, {}, {}
   for i, ep in ipairs(episodes) do
     local matches = get_tmdb_episode_matches(ep)
     local te = get_tmdb_episode(ep)
-    if not is_regular_content(ep, te) then te = nil end
+    local regular = is_regular_content(ep, te)
+    if not regular then te = nil end
     local key
     if te then
       local season = te.seasonnumber or 1
       key = "tmdb:" .. tostring(te.showid) .. ":" .. tostring(season)
       if not groups[key] then
         groups[key] = { type = EpisodeType.Episode, season = season, nums = {}, seen = {} }
-        order[#order + 1] = key
+        regular_order[#regular_order + 1] = key
       end
       for j, match in ipairs(matches) do
         local numkey = tostring(match.number)
@@ -386,15 +406,18 @@ local function get_marker()
       key = "anidb:" .. tostring(ep.type)
       if not groups[key] then
         groups[key] = { type = ep.type, nums = {} }
+        local order = regular and regular_order or extra_order
         order[#order + 1] = key
       end
       groups[key].nums[#groups[key].nums + 1] = ep.number
     end
   end
   local parts = {}
-  for i, key in ipairs(order) do
-    local group = groups[key]
-    parts[#parts + 1] = format_group(group.type, group.nums, group.season)
+  for _, order in ipairs({ regular_order, extra_order }) do
+    for i, key in ipairs(order) do
+      local group = groups[key]
+      parts[#parts + 1] = format_group(group.type, group.nums, group.season)
+    end
   end
   return table.concat(parts)
 end
