@@ -24,11 +24,15 @@
 --     year        from the air date (anime.year does not exist in the Lua env)
 --     season NN   TMDB season number when available, else 1 (AniDB is
 --                 single-season per entry, so AniDB fallback is season 1)
+--     episode     TMDB episode number when cross-referenced, otherwise the
+--                 AniDB number with type-appropriate padding
 --     [anidbid-id]  AniDB ID tag: on the Season folder for shows (each season
 --                 of a TMDB show is one AniDB entry), on the root folder for
 --                 movies without a TMDB cross-reference
 --     [tmdbid-id]  TMDB ID tag: on the root folder for TMDB-linked movies and
 --                 shows, so Silo can identify the title without guessing
+--     [anidbfile-id]  alternative filename suffix used only when the normal
+--                 target already exists; manual links have no such fallback
 --     content     Extras (see get_content_folder)
 --
 --     Example: Anime/Shows/GerDub/Tokidoki Bosotto to Roshippu to (2024) [tmdbid-12345]/
@@ -44,15 +48,28 @@ local mountroot = "/mnt/array"  -- parent of Anime/ and Hentai/, must match the 
 -- XFS segments are limited to 255 bytes (not characters), so all truncation
 -- must count UTF-8 bytes and must not split a multibyte character.
 -- gmatch(".[\128-\191]*") walks the string one UTF-8 codepoint at a time.
+local function cleaned_bytes(s)
+  local len = 0
+  for c in s:gmatch(".[\128-\191]*") do
+    local replacement = not remove_illegal_chars and replace_illegal_chars
+        and illegal_chars_map and illegal_chars_map[c] or nil
+    len = len + #(replacement or c)
+  end
+  return len
+end
+
 local function truncate_bytes(s, maxbytes, ellipsis)
   ellipsis = ellipsis or "..."
-  if #s <= maxbytes then return s end
-  local budget = maxbytes - #ellipsis
+  if cleaned_bytes(s) <= maxbytes then return s end
+  local budget = maxbytes - cleaned_bytes(ellipsis)
   local parts, len = {}, 0
   for c in s:gmatch(".[\128-\191]*") do
-    if len + #c > budget then break end
+    local replacement = not remove_illegal_chars and replace_illegal_chars
+        and illegal_chars_map and illegal_chars_map[c] or nil
+    local bytes = #(replacement or c)
+    if len + bytes > budget then break end
     parts[#parts + 1] = c
-    len = len + #c
+    len = len + bytes
   end
   return table.concat(parts):gsub("%s+$", "") .. ellipsis
 end
@@ -63,6 +80,10 @@ end
 
 local animename = anime:getname(animelanguage) or anime.preferredname
 local base = anime.restricted and "Hentai" or "Anime"
+-- Lua cannot inspect the final target itself. The plugin evaluates this
+-- alternative only after resolving destination/subfolder and only on collision.
+local anidb_collision_tag = file.anidb and file.anidb.id
+    and (" [anidbfile-" .. tostring(file.anidb.id) .. "]") or nil
 
 -- Language availability. file.media and file.anidb are optional (nil when the
 -- file lacks a MediaInfo probe or a matching AniDB release), so every access
@@ -111,27 +132,50 @@ end
 -- exposes every AniDB episode link of a movie as anidbepisodeids.
 local function get_tmdb_movie()
   if not tmdb or not tmdb.movies or not episode or not episode.id then return nil end
+  local match = nil
   for i, m in ipairs(tmdb.movies) do
     for j, id in ipairs(m.anidbepisodeids or {}) do
-      if tostring(id) == tostring(episode.id) then return m end
+      if tostring(id) == tostring(episode.id) then
+        if match and match ~= m then return nil end
+        match = m
+      end
     end
   end
-  return nil
+  return match
+end
+
+local function get_tmdb_episode_matches(ep)
+  ep = ep or episode
+  if not tmdb or not tmdb.episodes or not ep or not ep.id then return {} end
+  local matches = {}
+  for i, te in ipairs(tmdb.episodes) do
+    for j, id in ipairs(te.anidbepisodeids or {}) do
+      if tostring(id) == tostring(ep.id) then
+        matches[#matches + 1] = te
+        break
+      end
+    end
+  end
+  return matches
 end
 
 -- TMDB episode of the show that the file's primary episode is linked to, or
--- nil. When present it governs season, episode number and folder, so the
--- layout mirrors TMDB even when AniDB typed the episode as something else
--- (Cyborg 009's TV episodes are "Other" on AniDB but season 1 on TMDB). A
--- TMDB episode can cover several AniDB episodes, so the link is a list.
-local function get_tmdb_episode()
-  if not tmdb or not tmdb.episodes or not episode or not episode.id then return nil end
-  for i, te in ipairs(tmdb.episodes) do
-    for j, id in ipairs(te.anidbepisodeids or {}) do
-      if tostring(id) == tostring(episode.id) then return te end
+-- nil. Several matches remain usable when they all belong to one show, season
+-- and type; get_marker then emits their TMDB numbers as a range. A genuinely
+-- ambiguous match falls back to AniDB instead of depending on list order.
+local function get_tmdb_episode(ep)
+  local matches = get_tmdb_episode_matches(ep)
+  local match = matches[1]
+  if not match then return nil end
+  for i = 2, #matches do
+    local te = matches[i]
+    if tostring(te.showid) ~= tostring(match.showid)
+        or (te.seasonnumber or 1) ~= (match.seasonnumber or 1)
+        or te.type ~= match.type then
+      return nil
     end
   end
-  return nil
+  return match
 end
 
 -- Resolve the current file's cross-references once. A renamer invocation is
@@ -192,6 +236,7 @@ local function get_show_name()
     local name = s.preferredname or s.defaultname
     if name then return name end
   end
+  if root_tmdb_show_id then return "TMDB Show" end
   return animename
 end
 
@@ -214,10 +259,13 @@ local function get_anime_folder_name(movie)
   else
     local s = root_tmdb_show
     if root_tmdb_show_id then
-      local name = s and (s.preferredname or s.defaultname) or animename
-      name = name or animename
+      -- Never derive a TMDB root from the current AniDB entry: several AniDB
+      -- seasons of one show must remain in exactly the same root even when the
+      -- TMDB title/date metadata is temporarily incomplete.
+      local name = s and (s.preferredname or s.defaultname) or "TMDB Show"
+      name = name or "TMDB Show"
       local suffix = s and s.airdate and not name:match("%(%d%d%d%d%)$")
-          and (" (" .. tostring(s.airdate.year) .. ")") or get_year_suffix(name)
+          and (" (" .. tostring(s.airdate.year) .. ")") or ""
       local tag = " [tmdbid-" .. tostring(root_tmdb_show_id) .. "]"
       return truncate_bytes(name, 255 - #suffix - #tag) .. suffix .. tag
     end
@@ -229,19 +277,13 @@ local function get_anime_folder_name(movie)
   return truncate_bytes(animename, 255 - #suffix) .. suffix
 end
 
--- AniDB has no seasons, so the season in the marker comes from the primary
--- episode's TMDB cross-reference when available. The type+number scan remains
--- as compatibility fallback for plugin builds without anidbepisodeids.
-local function get_season(t, num)
-  if tmdb_episode and tmdb_episode.type == t then
-    return tmdb_episode.seasonnumber or 1
-  end
-  for i, te in ipairs(tmdb and tmdb.episodes or {}) do
-    if te.type == t and te.number == num then
-      return te.seasonnumber or 1
-    end
-  end
-  return 1
+-- Only normal AniDB episodes use TMDB numbering. The one intentional exception
+-- is an AniDB "Other" which TMDB identifies as a real episode in a regular
+-- season (Cyborg 009). Specials/credits/trailers remain Extras with C/S/T/P/O.
+local function is_regular_content(ep, te)
+  if ep.type == EpisodeType.Episode then return true end
+  return ep.type == EpisodeType.Other and te and te.type == EpisodeType.Episode
+      and (te.seasonnumber or 1) > 0
 end
 
 -- The Season folder mirrors TMDB's season numbering for the file's regular
@@ -250,11 +292,10 @@ end
 -- show episode that AniDB typed as "Other" (Cyborg 009) still lands in the
 -- right season.
 local function get_primary_season()
-  local te = tmdb_episode
-  if te and te.seasonnumber then return te.seasonnumber end
   for i, ep in ipairs(episodes) do
-    if ep.type == EpisodeType.Episode then
-      return get_season(EpisodeType.Episode, ep.number)
+    local te = get_tmdb_episode(ep)
+    if is_regular_content(ep, te) then
+      return te and te.seasonnumber or 1
     end
   end
   return 1
@@ -284,20 +325,30 @@ local function format_group_marker(t, season, num, pad)
 end
 
 -- Consecutive episodes of one type collapse into a range: S01E01-E02 or
--- C01-C02. Regular episodes use TMDB season markers; other AniDB types retain
--- their established C/S/T/P/O prefixes.
-local function format_group(t, nums)
+-- C01-C02. TMDB-numbered groups derive their padding from the TMDB numbers;
+-- AniDB fallbacks keep the type count and established C/S/T/P/O prefixes.
+local function format_group(t, nums, tmdb_season)
   table.sort(nums)
-  local pad = math.max(#tostring(anime.episodecounts[t] or 0), 2)
-  local season = t == EpisodeType.Episode and get_season(t, nums[1]) or 0
-  local range_prefix = t == EpisodeType.Episode and "E" or (marker_prefixes[t] or "O")
+  local marker_type = t
+  local pad
+  local season
+  if tmdb_season ~= nil then
+    marker_type = EpisodeType.Episode
+    season = tmdb_season
+    pad = 2
+    for i, num in ipairs(nums) do pad = math.max(pad, #tostring(num)) end
+  else
+    pad = math.max(#tostring(anime.episodecounts[t] or 0), 2)
+    season = t == EpisodeType.Episode and 1 or 0
+  end
+  local range_prefix = marker_type == EpisodeType.Episode and "E" or (marker_prefixes[marker_type] or "O")
   local parts = {}
   local first = nums[1]
   local prev = first
   for i = 2, #nums + 1 do
     local n = nums[i]
     if not n or n ~= prev + 1 then
-      parts[#parts + 1] = format_group_marker(t, season, first, pad)
+      parts[#parts + 1] = format_group_marker(marker_type, season, first, pad)
           .. (first == prev and "" or "-" .. range_prefix .. string.format("%0" .. pad .. "d", prev))
       first = n
     end
@@ -306,28 +357,44 @@ local function format_group(t, nums)
   return table.concat(parts)
 end
 
--- Consecutive episodes of the same type share a group (S01E01-E02); a file
--- carrying several types concatenates the groups (S01E01-E02S01). A file
--- without regular episodes whose primary episode has a TMDB cross-reference
--- takes that TMDB season and number instead of the marker of its AniDB type.
--- ponytail: multi-episode files of that kind use only the primary episode.
+-- Regular AniDB episodes linked to TMDB use TMDB season and episode number.
+-- This matters for absolute AniDB numbering (One Piece AniDB E326 can be TMDB
+-- S09E08). Multi-episode files group consecutive TMDB numbers into ranges;
+-- unlinked episodes and Extras retain the AniDB type/number fallback.
 local function get_marker()
-  local te = tmdb_episode
-  if te and not (episode.type == EpisodeType.Episode) then
-    local pad = math.max(#tostring(anime.episodecounts.Episode or 0), 2)
-    return format_marker(te.seasonnumber or 1, te.number, pad)
-  end
   local groups, order = {}, {}
   for i, ep in ipairs(episodes) do
-    if not groups[ep.type] then
-      groups[ep.type] = {}
-      order[#order + 1] = ep.type
+    local matches = get_tmdb_episode_matches(ep)
+    local te = get_tmdb_episode(ep)
+    if not is_regular_content(ep, te) then te = nil end
+    local key
+    if te then
+      local season = te.seasonnumber or 1
+      key = "tmdb:" .. tostring(te.showid) .. ":" .. tostring(season)
+      if not groups[key] then
+        groups[key] = { type = EpisodeType.Episode, season = season, nums = {}, seen = {} }
+        order[#order + 1] = key
+      end
+      for j, match in ipairs(matches) do
+        local numkey = tostring(match.number)
+        if not groups[key].seen[numkey] then
+          groups[key].nums[#groups[key].nums + 1] = match.number
+          groups[key].seen[numkey] = true
+        end
+      end
+    else
+      key = "anidb:" .. tostring(ep.type)
+      if not groups[key] then
+        groups[key] = { type = ep.type, nums = {} }
+        order[#order + 1] = key
+      end
+      groups[key].nums[#groups[key].nums + 1] = ep.number
     end
-    groups[ep.type][#groups[ep.type] + 1] = ep.number
   end
   local parts = {}
-  for i, t in ipairs(order) do
-    parts[#parts + 1] = format_group(t, groups[t])
+  for i, key in ipairs(order) do
+    local group = groups[key]
+    parts[#parts + 1] = format_group(group.type, group.nums, group.season)
   end
   return table.concat(parts)
 end
@@ -350,12 +417,11 @@ end
 -- openings, endings, trailers and all other non-episode content share Extras;
 -- their C/S/T/P/O markers keep equal AniDB numbers distinct.
 -- tofa treats these folder names as extras and keeps them out of the library.
--- An episode with a TMDB cross-reference is a real show episode and stays in
--- its season folder, whatever AniDB typed it as.
+-- Only the explicit AniDB-Other -> regular TMDB episode exception stays in a
+-- season folder despite its AniDB type.
 local function get_content_folder()
-  if tmdb_episode then return nil end
   for i, ep in ipairs(episodes) do
-    if ep.type == EpisodeType.Episode then return nil end
+    if is_regular_content(ep, get_tmdb_episode(ep)) then return nil end
   end
   return "Extras"
 end
@@ -402,10 +468,8 @@ if movie then
   end
   if not suffix then suffix = get_year_suffix(title) end
   if content_folder then
-    local num = episode and episode.number or 0
-    local t = episode and episode.type or EpisodeType.Other
-    local pad = math.max(#tostring(anime.episodecounts[t] or 0), 2)
-    suffix = suffix .. " - " .. (marker_prefixes[t] or "O") .. string.format("%0" .. pad .. "d", num)
+    suffix = suffix .. " - " .. get_marker()
+        .. " [anidbid-" .. tostring(anime.id) .. "]"
   elseif episode and episode.number then
     local need_part
     if m then
@@ -419,9 +483,14 @@ if movie then
     end
   end
   filename = truncate_bytes(title, maxfilenamelen - #suffix - 5) .. suffix
+  if anidb_collision_tag then
+    collision_filename = truncate_bytes(title, maxfilenamelen - #suffix - #anidb_collision_tag - 5)
+        .. suffix .. anidb_collision_tag
+  end
 else
   local marker = get_marker()
   local episodename = get_episode_names()
+  local extra_tag = content_folder and (" [anidbid-" .. tostring(anime.id) .. "]") or ""
 
   -- "<show> - <marker> - <episode title>"; the trailing " - " is stripped when
   -- there is no episode title. Parts are truncated individually and as a
@@ -429,11 +498,16 @@ else
   -- file is never skipped. The show prefix is the TMDB show name (or AniDB
   -- fallback): a file in ".hack (2002)/Season 03" must read ".hack", or tofa
   -- would hunt for a third season of ".hack//Roots".
-  filename = truncate_bytes(table.concat({
+  local filename_base = table.concat({
     truncate_bytes(get_show_name(), 80) .. " - ",
     marker .. " - ",
     truncate_bytes(episodename, 60),
-  }, " "):cleanspaces(spacechar):gsub("%s*%-%s*$", ""), maxfilenamelen)
+  }, " "):cleanspaces(spacechar):gsub("%s*%-%s*$", "")
+  filename = truncate_bytes(filename_base, maxfilenamelen - #extra_tag) .. extra_tag
+  if anidb_collision_tag then
+    collision_filename = truncate_bytes(filename_base, maxfilenamelen - #extra_tag - #anidb_collision_tag)
+        .. extra_tag .. anidb_collision_tag
+  end
 end
 
 -- destination is the import folder (a Plex VFS library root); the media type
