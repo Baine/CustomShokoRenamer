@@ -672,9 +672,31 @@ run("Unlinked primary Other uses the regular episode TMDB root", {
   },
 }, { eq(
   "PrimaryOtherFallback",
-  "Genmukan: The Sin of Desire & Shame - S02E01-E02O01 - Bonus/Teil 1/Teil 2",
+  "Genmukan: The Sin of Desire & Shame - S02E01-E02O01 - Teil 1/Teil 2/Bonus",
   { "Genmukan: The Sin of Desire & Shame (2003) [tmdbid-100907]", "Season 02 [anidbid-7309]" },
   "/mnt/array/Hentai/Shows/GerSub"
+) })
+
+run("Lua selects its primary episode by the configured type priority", {
+  anime = make_anime({
+    id = 3, _de = "Series X",
+    episodecounts = { Episode = 1, Special = 1, Other = 1, Credits = 1, Trailer = 1, Parody = 1 },
+  }),
+  episodes = {
+    make_ep(1, EpisodeType.Other, { de = "Other" }),
+    make_ep(1, EpisodeType.Credits, { de = "Credits" }),
+    make_ep(1, EpisodeType.Special, { de = "Special" }),
+    make_ep(1, EpisodeType.Episode, { de = "Episode" }),
+    make_ep(1, EpisodeType.Trailer, { de = "Trailer" }),
+    make_ep(1, EpisodeType.Parody, { de = "Parody" }),
+  },
+  episode = make_ep(1, EpisodeType.Other, { de = "Other" }),
+  file = { path = "/mnt/array/Downloads/_drop/mixed-types.mkv", media = nil, anidb = nil },
+}, { eq(
+  "LuaEpisodePriority",
+  "Series X - S01E01S01O01C01T01P01 - Episode/Special/Other/Credits/Trailer/Parody",
+  { "Series X (2021)", "Season 01 [anidbid-3]" },
+  "/mnt/array/Anime/Shows/_manual"
 ) })
 
 run("Multi-episode movie Extra keeps the marker range", {

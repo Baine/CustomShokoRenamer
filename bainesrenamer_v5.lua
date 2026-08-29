@@ -80,6 +80,34 @@ end
 
 local animename = anime:getname(animelanguage) or anime.preferredname
 local base = anime.restricted and "Hentai" or "Anime"
+
+-- Choose the script's primary episode independently of the order supplied by
+-- LuaRenamer. Normal content wins, then specials/other material, followed by
+-- credits, trailers and parodies. Episodes of the primary anime stay ahead of
+-- links to other anime that may share the same file.
+local episode_type_priority = {
+  [EpisodeType.Episode] = 1,
+  [EpisodeType.Special] = 2,
+  [EpisodeType.Other] = 3,
+  [EpisodeType.Credits] = 4,
+  [EpisodeType.Trailer] = 5,
+  [EpisodeType.Parody] = 6,
+}
+
+local ordered_episodes = {}
+for i, ep in ipairs(episodes) do ordered_episodes[i] = ep end
+table.sort(ordered_episodes, function(a, b)
+  local a_primary = not a.animeid or tostring(a.animeid) == tostring(anime.id)
+  local b_primary = not b.animeid or tostring(b.animeid) == tostring(anime.id)
+  if a_primary ~= b_primary then return a_primary end
+  local a_priority = episode_type_priority[a.type] or 99
+  local b_priority = episode_type_priority[b.type] or 99
+  if a_priority ~= b_priority then return a_priority < b_priority end
+  if (a.number or 0) ~= (b.number or 0) then return (a.number or 0) < (b.number or 0) end
+  return tostring(a.id or "") < tostring(b.id or "")
+end)
+local primary_episode = ordered_episodes[1] or episode
+
 -- Lua cannot inspect the final target itself. The plugin evaluates this
 -- alternative only after resolving destination/subfolder and only on collision.
 local anidb_collision_tag = file.anidb and file.anidb.id
@@ -131,11 +159,11 @@ end
 -- movie, and the per-episode cross-reference tells them apart. The plugin
 -- exposes every AniDB episode link of a movie as anidbepisodeids.
 local function get_tmdb_movie()
-  if not tmdb or not tmdb.movies or not episode or not episode.id then return nil end
+  if not tmdb or not tmdb.movies or not primary_episode or not primary_episode.id then return nil end
   local match = nil
   for i, m in ipairs(tmdb.movies) do
     for j, id in ipairs(m.anidbepisodeids or {}) do
-      if tostring(id) == tostring(episode.id) then
+      if tostring(id) == tostring(primary_episode.id) then
         if match and match ~= m then return nil end
         match = m
       end
@@ -145,7 +173,7 @@ local function get_tmdb_movie()
 end
 
 local function get_tmdb_episode_matches(ep)
-  ep = ep or episode
+  ep = ep or primary_episode
   if not tmdb or not tmdb.episodes or not ep or not ep.id then return {} end
   local matches = {}
   for i, te in ipairs(tmdb.episodes) do
@@ -187,15 +215,14 @@ local function is_regular_content(ep, te)
       and (te.seasonnumber or 1) > 0
 end
 
--- LuaRenamer currently puts AniDB Other entries first when it chooses the
--- primary episode. If that Other has no cross-reference, use an unambiguous
--- regular TMDB episode from the same file instead. Conflicting shows
--- still fall back to AniDB rather than depending on episode list order.
+-- If the selected primary episode has no cross-reference, use an unambiguous
+-- regular TMDB episode from the same file instead. Conflicting shows still
+-- fall back to AniDB rather than depending on episode list order.
 local function get_file_tmdb_episode()
-  local primary = get_tmdb_episode(episode)
+  local primary = get_tmdb_episode(primary_episode)
   if primary then return primary end
   local match = nil
-  for i, ep in ipairs(episodes) do
+  for i, ep in ipairs(ordered_episodes) do
     local te = get_tmdb_episode(ep)
     if te and is_regular_content(ep, te) then
       if match and tostring(match.showid) ~= tostring(te.showid) then return nil end
@@ -310,7 +337,7 @@ end
 -- show episode that AniDB typed as "Other" (Cyborg 009) still lands in the
 -- right season.
 local function get_primary_season()
-  for i, ep in ipairs(episodes) do
+  for i, ep in ipairs(ordered_episodes) do
     local te = get_tmdb_episode(ep)
     if is_regular_content(ep, te) and te and root_tmdb_show_id
         and tostring(te.showid) == tostring(root_tmdb_show_id) then
@@ -382,7 +409,7 @@ end
 -- unlinked episodes and Extras retain the AniDB type/number fallback.
 local function get_marker()
   local groups, regular_order, extra_order = {}, {}, {}
-  for i, ep in ipairs(episodes) do
+  for i, ep in ipairs(ordered_episodes) do
     local matches = get_tmdb_episode_matches(ep)
     local te = get_tmdb_episode(ep)
     local regular = is_regular_content(ep, te)
@@ -425,11 +452,11 @@ end
 -- Episode names use the preferred language with an English fallback. A single
 -- episode returns its name directly; several episodes are joined with "/".
 local function get_episode_names()
-  if #episodes == 1 then
-    return episode:getname(episodelanguage) or episode:getname(Language.English) or ""
+  if #ordered_episodes == 1 then
+    return primary_episode:getname(episodelanguage) or primary_episode:getname(Language.English) or ""
   end
   local names = {}
-  for i, ep in ipairs(episodes) do
+  for i, ep in ipairs(ordered_episodes) do
     local name = ep:getname(episodelanguage) or ep:getname(Language.English) or ""
     if name ~= "" then names[#names + 1] = name end
   end
@@ -443,7 +470,7 @@ end
 -- Only the explicit AniDB-Other -> regular TMDB episode exception stays in a
 -- season folder despite its AniDB type.
 local function get_content_folder()
-  for i, ep in ipairs(episodes) do
+  for i, ep in ipairs(ordered_episodes) do
     if is_regular_content(ep, get_tmdb_episode(ep)) then return nil end
   end
   return "Extras"
@@ -493,7 +520,7 @@ if movie then
   if content_folder then
     suffix = suffix .. " - " .. get_marker()
         .. " [anidbid-" .. tostring(anime.id) .. "]"
-  elseif episode and episode.number then
+  elseif primary_episode and primary_episode.number then
     local need_part
     if m then
       need_part = #(m.anidbepisodeids or {}) > 1
@@ -502,7 +529,7 @@ if movie then
     end
     if need_part then
       local pad = math.max(#tostring(anime.episodecounts.Episode), 2)
-      suffix = suffix .. " - " .. string.format("%0" .. pad .. "d", episode.number)
+      suffix = suffix .. " - " .. string.format("%0" .. pad .. "d", primary_episode.number)
     end
   end
   filename = truncate_bytes(title, maxfilenamelen - #suffix - 5) .. suffix
