@@ -373,6 +373,46 @@ run("Multiple episodes -> same TMDB movie keeps part numbers", {
   },
 }, { eq("TmdbMovieShared", "Batman: Gotham Knight (2008) - 02", { "Batman: Gotham Knight (2008) [tmdbid-2001]" }, "/mnt/array/Anime/Movies/_manual") })
 
+run("Complete movie alongside split files keeps the plain movie name", {
+  anime = make_anime({ id = 728, type = AnimeType.Movie, airdate = { year = 1982 }, preferredname = "Arcadia of My Youth", episodecounts = { Episode = 3, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { en = "Complete Movie" }), 72801) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { en = "Complete Movie" }), 72801),
+  file = { path = "/mnt/array/Downloads/_drop/arcadia-complete.mkv", media = nil, anidb = nil },
+  tmdb_movies = {
+    { id = "1531453", anidbepisodeids = { 72801, 72802, 72803 }, preferredname = "Captain Harlock: Arcadia of My Youth", airdate = { year = 1982 } },
+  },
+}, { eq("CompleteMovie", "Captain Harlock: Arcadia of My Youth (1982)", { "Captain Harlock: Arcadia of My Youth (1982) [tmdbid-1531453]" }, "/mnt/array/Anime/Movies/_manual") })
+
+run("First split movie file gets a media-server part suffix", {
+  anime = make_anime({ id = 728, type = AnimeType.Movie, airdate = { year = 1982 }, preferredname = "Arcadia of My Youth", episodecounts = { Episode = 3, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { set_id(make_ep(2, EpisodeType.Episode, { en = "Part 1 of 2" }), 72802) },
+  episode = set_id(make_ep(2, EpisodeType.Episode, { en = "Part 1 of 2" }), 72802),
+  file = { path = "/mnt/array/Downloads/_drop/arcadia-part1.mkv", media = nil, anidb = nil },
+  tmdb_movies = {
+    { id = "1531453", anidbepisodeids = { 72801, 72802, 72803 }, preferredname = "Captain Harlock: Arcadia of My Youth", airdate = { year = 1982 } },
+  },
+}, { eq("SplitMoviePart1", "Captain Harlock: Arcadia of My Youth (1982) - pt1", { "Captain Harlock: Arcadia of My Youth (1982) [tmdbid-1531453]" }, "/mnt/array/Anime/Movies/_manual") })
+
+run("Second split movie file gets a media-server part suffix", {
+  anime = make_anime({ id = 728, type = AnimeType.Movie, airdate = { year = 1982 }, preferredname = "Arcadia of My Youth", episodecounts = { Episode = 3, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { set_id(make_ep(3, EpisodeType.Episode, { en = "Part 2 of 2" }), 72803) },
+  episode = set_id(make_ep(3, EpisodeType.Episode, { en = "Part 2 of 2" }), 72803),
+  file = { path = "/mnt/array/Downloads/_drop/arcadia-part2.mkv", media = nil, anidb = nil },
+  tmdb_movies = {
+    { id = "1531453", anidbepisodeids = { 72801, 72802, 72803 }, preferredname = "Captain Harlock: Arcadia of My Youth", airdate = { year = 1982 } },
+  },
+}, { eq("SplitMoviePart2", "Captain Harlock: Arcadia of My Youth (1982) - pt2", { "Captain Harlock: Arcadia of My Youth (1982) [tmdbid-1531453]" }, "/mnt/array/Anime/Movies/_manual") })
+
+run("Three-part movie uses the declared part number", {
+  anime = make_anime({ id = 729, type = AnimeType.Movie, airdate = { year = 1983 }, preferredname = "Three Part Movie", episodecounts = { Episode = 4, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { set_id(make_ep(4, EpisodeType.Episode, { en = "Part 3 of 3" }), 72904) },
+  episode = set_id(make_ep(4, EpisodeType.Episode, { en = "Part 3 of 3" }), 72904),
+  file = { path = "/mnt/array/Downloads/_drop/three-part-3.mkv", media = nil, anidb = nil },
+  tmdb_movies = {
+    { id = "1531454", anidbepisodeids = { 72901, 72902, 72903, 72904 }, preferredname = "Three Part Movie", airdate = { year = 1983 } },
+  },
+}, { eq("SplitMoviePart3", "Three Part Movie (1983) - pt3", { "Three Part Movie (1983) [tmdbid-1531454]" }, "/mnt/array/Anime/Movies/_manual") })
+
 run("TMDB episode linked to several AniDB episodes matches by membership", {
   anime = make_anime({ id = 7, _de = "Multi Link", airdate = { year = 2021 } }),
   episodes = { set_id(make_ep(1, EpisodeType.Episode, { de = "Folge 1" }), 901) },

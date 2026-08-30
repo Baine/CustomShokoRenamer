@@ -503,6 +503,31 @@ if content_folder then
   end
 end
 
+-- AniDB sometimes represents one TMDB movie as both a complete file and an
+-- alternative split release ("Complete Movie", "Part 1 of 2", ...). Common
+-- media servers stack files ending in pt1/pt2/etc. The title check keeps other
+-- multi-episode movie entries on the existing, neutral 01/02 numbering.
+local function get_movie_multipart_suffix(m)
+  if not m or #(m.anidbepisodeids or {}) <= 1 or not primary_episode then return nil end
+  local names = {}
+  local english_name = primary_episode:getname(Language.English)
+  local preferred_name = primary_episode:getname(episodelanguage)
+  if english_name then names[#names + 1] = english_name end
+  if preferred_name then names[#names + 1] = preferred_name end
+  for i, name in ipairs(names) do
+    local normalized = name and name:lower():match("^%s*(.-)%s*$") or nil
+    if normalized == "complete movie" then return "" end
+    if normalized then
+      local part, total = normalized:match("^part%s+(%d+)%s+of%s+(%d+)$")
+      part, total = tonumber(part), tonumber(total)
+      if part and total and part >= 1 and part <= total then
+        return " - pt" .. tostring(part)
+      end
+    end
+  end
+  return nil
+end
+
 if movie then
   -- tofa movies carry only the title and year; an episode marker in a movie
   -- file would be a show-file signal and could break matching in a Movies
@@ -529,15 +554,20 @@ if movie then
     suffix = suffix .. " - " .. get_marker()
         .. " [anidbid-" .. tostring(anime.id) .. "]"
   elseif primary_episode and primary_episode.number then
-    local need_part
-    if m then
-      need_part = #(m.anidbepisodeids or {}) > 1
+    local multipart_suffix = get_movie_multipart_suffix(m)
+    if multipart_suffix ~= nil then
+      suffix = suffix .. multipart_suffix
     else
-      need_part = (anime.episodecounts.Episode or 0) > 1
-    end
-    if need_part then
-      local pad = math.max(#tostring(anime.episodecounts.Episode), 2)
-      suffix = suffix .. " - " .. string.format("%0" .. pad .. "d", primary_episode.number)
+      local need_part
+      if m then
+        need_part = #(m.anidbepisodeids or {}) > 1
+      else
+        need_part = (anime.episodecounts.Episode or 0) > 1
+      end
+      if need_part then
+        local pad = math.max(#tostring(anime.episodecounts.Episode), 2)
+        suffix = suffix .. " - " .. string.format("%0" .. pad .. "d", primary_episode.number)
+      end
     end
   end
   filename = truncate_bytes(title, maxfilenamelen - #suffix - 5) .. suffix
