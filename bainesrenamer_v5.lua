@@ -489,11 +489,11 @@ end
 
 -- Extras and specials often have no episode-level TMDB cross-reference. When
 -- the AniDB entry has exactly one TMDB movie/show, it is still unambiguous and
--- should share the same TMDB root as the regular content. An unlinked regular
--- episode may inherit the sole TMDB show only when at least one sibling episode
--- has an explicit cross-reference to that show. Its season/episode numbering
--- still falls back to AniDB. Multiple candidates deliberately keep the AniDB
--- root instead of choosing the wrong one.
+-- should share the same TMDB root as the regular content. The plugin exposes
+-- shows for the whole Shoko series but TMDB episodes only for the current file,
+-- so an unlinked regular episode must inherit the sole series-level show without
+-- looking for sibling episode links here. Its season/episode numbering still
+-- falls back to AniDB. Multiple candidates keep the AniDB root.
 if content_folder then
   if not root_tmdb_movie and tmdb and tmdb.movies and #tmdb.movies == 1 then
     root_tmdb_movie = tmdb.movies[1]
@@ -501,18 +501,7 @@ if content_folder then
 end
 
 local sole_tmdb_show = tmdb and tmdb.shows and #tmdb.shows == 1 and tmdb.shows[1] or nil
-local sole_show_has_episode_link = false
-if sole_tmdb_show and tmdb and tmdb.episodes then
-  for i, te in ipairs(tmdb.episodes) do
-    if tostring(te.showid) == tostring(sole_tmdb_show.id)
-        and #(te.anidbepisodeids or {}) > 0 then
-      sole_show_has_episode_link = true
-      break
-    end
-  end
-end
-if not movie and not root_tmdb_show and sole_tmdb_show
-    and (content_folder or sole_show_has_episode_link) then
+if not movie and not root_tmdb_show and sole_tmdb_show then
   root_tmdb_show = sole_tmdb_show
 end
 if not root_tmdb_show_id and root_tmdb_show then
