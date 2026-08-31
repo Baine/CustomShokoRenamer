@@ -133,6 +133,72 @@ run("TMDB show folder over anidb title", {
   tmdb_episodes = { { anidbepisodeids = { 432421 }, type = EpisodeType.Episode, number = 21, seasonnumber = 3, showid = "8864" } },
 }, { eq("TmdbShow", ".hack - S03E21 - Defeat", { ".hack (2002) [tmdbid-8864]", "Season 03 [anidbid-4324]" }, "/mnt/array/Anime/Shows/GerDub") })
 
+run("Unreadable TMDB show title falls back to AniDB English", {
+  anime = make_anime({
+    id = 11033, restricted = true, _en = "Raunchy Roleplay",
+    preferredname = "Ikoku na Retro", airdate = { year = 2015 },
+  }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { en = "OVA" }), 1103301) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { en = "OVA" }), 1103301),
+  file = { path = "/mnt/array/Downloads/_drop/ova.mkv", media = nil, anidb = nil },
+  tmdb_shows = { {
+    id = "317115", preferredname = "異国なレトロ", airdate = { year = 2015 },
+    getname = function() return nil end,
+  } },
+  tmdb_episodes = {
+    { anidbepisodeids = { 1103301 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "317115" },
+  },
+}, { eq(
+  "ReadableAniDBEnglish",
+  "Raunchy Roleplay - S01E01 - OVA",
+  { "Raunchy Roleplay (2015) [tmdbid-317115]", "Season 01 [anidbid-11033]" },
+  "/mnt/array/Hentai/Shows/_manual"
+) })
+
+run("German AniDB title wins over English TMDB title", {
+  anime = make_anime({ id = 51, _de = "Deutscher AniDB-Titel", _en = "English AniDB Title" }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode), 5101) },
+  episode = set_id(make_ep(1, EpisodeType.Episode), 5101),
+  file = { path = "/mnt/array/Downloads/_drop/title.mkv", media = nil, anidb = nil },
+  tmdb_shows = { {
+    id = "510", preferredname = "English TMDB Title", airdate = { year = 2021 },
+    getname = function(_, lang)
+      if lang == Language.English then return "English TMDB Title" end
+      return nil
+    end,
+  } },
+  tmdb_episodes = {
+    { anidbepisodeids = { 5101 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "510" },
+  },
+}, { eq(
+  "GermanBeforeEnglish",
+  "Deutscher AniDB-Titel - S01E01",
+  { "Deutscher AniDB-Titel (2021) [tmdbid-510]", "Season 01 [anidbid-51]" },
+  "/mnt/array/Anime/Shows/_manual"
+) })
+
+run("English TMDB title wins over English AniDB title", {
+  anime = make_anime({ id = 52, _en = "English AniDB Title" }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode), 5201) },
+  episode = set_id(make_ep(1, EpisodeType.Episode), 5201),
+  file = { path = "/mnt/array/Downloads/_drop/title.mkv", media = nil, anidb = nil },
+  tmdb_shows = { {
+    id = "520", preferredname = "English TMDB Title", airdate = { year = 2021 },
+    getname = function(_, lang)
+      if lang == Language.English then return "English TMDB Title" end
+      return nil
+    end,
+  } },
+  tmdb_episodes = {
+    { anidbepisodeids = { 5201 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "520" },
+  },
+}, { eq(
+  "TMDBBeforeAniDB",
+  "English TMDB Title - S01E01",
+  { "English TMDB Title (2021) [tmdbid-520]", "Season 01 [anidbid-52]" },
+  "/mnt/array/Anime/Shows/_manual"
+) })
+
 run("TMDB episode number overrides AniDB absolute number", {
   anime = make_anime({ id = 69, _de = "One Piece", airdate = { year = 1999 }, episodecounts = { Episode = 1200, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
   episodes = { set_id(make_ep(326, EpisodeType.Episode, { de = "The Mysterious Band of Pirates!" }), 326001) },
@@ -372,6 +438,26 @@ run("Multi-episode movie -> own TMDB movie folders", {
     { id = "1003", anidbepisodeids = { 503 }, preferredname = "Shadow Skill: The Third", airdate = { year = 1996 } },
   },
 }, { eq("TmdbMovieFolder", "Shadow Skill: After the Battle (1996)", { "Shadow Skill: After the Battle (1996) [tmdbid-1001]" }, "/mnt/array/Anime/Movies/_manual") })
+
+run("Unreadable TMDB movie title falls back to AniDB English", {
+  anime = make_anime({
+    id = 349, type = AnimeType.Movie, _en = "Readable Movie",
+    preferredname = "Readable Romaji", airdate = { year = 1997 },
+    episodecounts = { Episode = 1, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 },
+  }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode), 34901) },
+  episode = set_id(make_ep(1, EpisodeType.Episode), 34901),
+  file = { path = "/mnt/array/Downloads/_drop/movie.mkv", media = nil, anidb = nil },
+  tmdb_movies = { {
+    id = "1004", anidbepisodeids = { 34901 }, preferredname = "読めない映画", airdate = { year = 1997 },
+    getname = function() return nil end,
+  } },
+}, { eq(
+  "ReadableMovieTitle",
+  "Readable Movie (1997)",
+  { "Readable Movie (1997) [tmdbid-1004]" },
+  "/mnt/array/Anime/Movies/_manual"
+) })
 
 run("Multiple episodes -> same TMDB movie keeps part numbers", {
   anime = make_anime({ id = 5611, type = AnimeType.Movie, airdate = { year = 2008 }, preferredname = "Batman: Gotham Knight", episodecounts = { Episode = 6, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),

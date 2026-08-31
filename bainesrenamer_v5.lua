@@ -40,7 +40,6 @@
 --
 -- CONFIG --------------------------------------------------------------------
 local maxfilenamelen = 190  -- bytes, safety margin below XFS's 255-byte segment limit
-local animelanguage = Language.German    -- preferred anime title language
 local episodelanguage = Language.German  -- preferred episode title language
 local spacechar = " "
 local mountroot = "/mnt/array"  -- parent of Anime/ and Hentai/, must match the import folder paths
@@ -78,7 +77,72 @@ local function has(list, lang)
   return from(list or {}):contains(lang)
 end
 
-local animename = anime:getname(animelanguage) or anime.preferredname
+-- Prefer titles the library owner can read: German first, then English. A
+-- readable official/default title is only a last fallback. Hiragana, Katakana,
+-- CJK ideographs and Korean writing are rejected even when Shoko selected them
+-- as preferredname, so a Japanese TMDB title cannot hide an English AniDB one.
+local function utf8_codepoint(c)
+  local b1, b2, b3, b4 = c:byte(1, 4)
+  if b1 < 128 then return b1 end
+  if b1 < 224 then return (b1 - 192) * 64 + (b2 - 128) end
+  if b1 < 240 then return (b1 - 224) * 4096 + (b2 - 128) * 64 + (b3 - 128) end
+  return (b1 - 240) * 262144 + (b2 - 128) * 4096 + (b3 - 128) * 64 + (b4 - 128)
+end
+
+local function readable_title(name)
+  if not name or name == "" then return nil end
+  for c in name:gmatch(".[\128-\191]*") do
+    local cp = utf8_codepoint(c)
+    if (cp >= 4352 and cp <= 4607)       -- Hangul Jamo
+        or (cp >= 12352 and cp <= 12543) -- Hiragana and Katakana
+        or (cp >= 12592 and cp <= 12687) -- Hangul Compatibility Jamo
+        or (cp >= 12784 and cp <= 12799) -- Katakana Phonetic Extensions
+        or (cp >= 13312 and cp <= 19903) -- CJK Unified Ideographs Extension A
+        or (cp >= 19968 and cp <= 40959) -- CJK Unified Ideographs
+        or (cp >= 44032 and cp <= 55203) -- Hangul Syllables
+        or (cp >= 63744 and cp <= 64255) -- CJK Compatibility Ideographs
+        or (cp >= 65382 and cp <= 65439) then -- Halfwidth Katakana
+      return nil
+    end
+  end
+  return name
+end
+
+local function localized_title(model, language)
+  if not model then return nil end
+  if model.getname then return readable_title(model:getname(language)) end
+  -- Compatibility with old plugin data and the verification stubs, where a
+  -- localized getter was not exposed yet.
+  if language == Language.German then
+    return readable_title(model.preferredname or model.defaultname)
+  end
+  return nil
+end
+
+local function official_title(model)
+  for i, title in ipairs(model and model.titles or {}) do
+    if tostring(title.type) == "Official" then
+      local name = readable_title(title.name)
+      if name then return name end
+    end
+  end
+  return nil
+end
+
+local function select_title(tmdb_entry)
+  return localized_title(tmdb_entry, Language.German)
+      or localized_title(anime, Language.German)
+      or localized_title(tmdb_entry, Language.English)
+      or localized_title(anime, Language.English)
+      or official_title(tmdb_entry)
+      or official_title(anime)
+      or readable_title(tmdb_entry and tmdb_entry.preferredname)
+      or readable_title(tmdb_entry and tmdb_entry.defaultname)
+      or readable_title(anime.preferredname)
+      or readable_title(anime.defaultname)
+end
+
+local animename = select_title(nil) or ("Anime " .. tostring(anime.id))
 local base = anime.restricted and "Hentai" or "Anime"
 
 -- Choose the script's primary episode independently of the order supplied by
@@ -280,14 +344,13 @@ local root_tmdb_movie = tmdb_movie
 local root_tmdb_show = tmdb_show
 local root_tmdb_show_id = tmdb_episode and tmdb_episode.showid or nil
 
--- Display name of the series: the TMDB show name when the file has a TMDB
--- cross-reference or inherits one unambiguous show from linked sibling
--- episodes (Sign, Twilight and Roots all belong to ".hack"), else the AniDB
--- title. Used for the root folder AND the file prefix.
+-- Display name of the series, using the shared language/source priority above.
+-- The matched TMDB show still supplies the root ID, year and season structure.
+-- Used for the root folder AND the file prefix.
 local function get_show_name()
   local s = root_tmdb_show
   if s then
-    local name = s.preferredname or s.defaultname
+    local name = select_title(s)
     if name then return name end
   end
   if root_tmdb_show_id then return "TMDB Show" end
@@ -304,7 +367,7 @@ local function get_anime_folder_name(movie)
   if movie then
     local m = root_tmdb_movie
     if m then
-      local name = m.preferredname or m.defaultname or animename
+      local name = select_title(m) or animename
       local suffix = m.airdate and not name:match("%(%d%d%d%d%)$")
           and (" (" .. tostring(m.airdate.year) .. ")") or get_year_suffix(name)
       local tag = " [tmdbid-" .. tostring(m.id) .. "]"
@@ -313,10 +376,9 @@ local function get_anime_folder_name(movie)
   else
     local s = root_tmdb_show
     if root_tmdb_show_id then
-      -- Never derive a TMDB root from the current AniDB entry: several AniDB
-      -- seasons of one show must remain in exactly the same root even when the
-      -- TMDB title/date metadata is temporarily incomplete.
-      local name = s and (s.preferredname or s.defaultname) or "TMDB Show"
+      -- The TMDB show remains authoritative for ID/date metadata. Its readable
+      -- localized title can fall back to AniDB according to select_title.
+      local name = s and select_title(s) or "TMDB Show"
       name = name or "TMDB Show"
       local suffix = s and s.airdate and not name:match("%(%d%d%d%d%)$")
           and (" (" .. tostring(s.airdate.year) .. ")") or ""
@@ -547,7 +609,7 @@ if movie then
   local title = animename
   local suffix = nil
   if m then
-    local name = m.preferredname or m.defaultname
+    local name = select_title(m)
     if name then
       title = name
       suffix = m.airdate and not name:match("%(%d%d%d%d%)$")
