@@ -280,10 +280,10 @@ local root_tmdb_movie = tmdb_movie
 local root_tmdb_show = tmdb_show
 local root_tmdb_show_id = tmdb_episode and tmdb_episode.showid or nil
 
--- Display name of the series: the TMDB show name when the file has TMDB
--- cross-references (Sign, Twilight and Roots all belong to ".hack"), else the
--- AniDB title. Used for the root folder AND the file prefix, so the file
--- always names the show it lives under.
+-- Display name of the series: the TMDB show name when the file has a TMDB
+-- cross-reference or inherits one unambiguous show from linked sibling
+-- episodes (Sign, Twilight and Roots all belong to ".hack"), else the AniDB
+-- title. Used for the root folder AND the file prefix.
 local function get_show_name()
   local s = root_tmdb_show
   if s then
@@ -489,18 +489,34 @@ end
 
 -- Extras and specials often have no episode-level TMDB cross-reference. When
 -- the AniDB entry has exactly one TMDB movie/show, it is still unambiguous and
--- should share the same TMDB root as the regular content. Multiple candidates
--- deliberately keep the AniDB fallback instead of choosing the wrong root.
+-- should share the same TMDB root as the regular content. An unlinked regular
+-- episode may inherit the sole TMDB show only when at least one sibling episode
+-- has an explicit cross-reference to that show. Its season/episode numbering
+-- still falls back to AniDB. Multiple candidates deliberately keep the AniDB
+-- root instead of choosing the wrong one.
 if content_folder then
   if not root_tmdb_movie and tmdb and tmdb.movies and #tmdb.movies == 1 then
     root_tmdb_movie = tmdb.movies[1]
   end
-  if not root_tmdb_show and tmdb and tmdb.shows and #tmdb.shows == 1 then
-    root_tmdb_show = tmdb.shows[1]
+end
+
+local sole_tmdb_show = tmdb and tmdb.shows and #tmdb.shows == 1 and tmdb.shows[1] or nil
+local sole_show_has_episode_link = false
+if sole_tmdb_show and tmdb and tmdb.episodes then
+  for i, te in ipairs(tmdb.episodes) do
+    if tostring(te.showid) == tostring(sole_tmdb_show.id)
+        and #(te.anidbepisodeids or {}) > 0 then
+      sole_show_has_episode_link = true
+      break
+    end
   end
-  if not root_tmdb_show_id and root_tmdb_show then
-    root_tmdb_show_id = root_tmdb_show.id
-  end
+end
+if not movie and not root_tmdb_show and sole_tmdb_show
+    and (content_folder or sole_show_has_episode_link) then
+  root_tmdb_show = sole_tmdb_show
+end
+if not root_tmdb_show_id and root_tmdb_show then
+  root_tmdb_show_id = root_tmdb_show.id
 end
 
 -- AniDB sometimes represents one TMDB movie as both a complete file and an

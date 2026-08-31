@@ -336,6 +336,24 @@ run("Regular episode without cross-ref keeps AniDB fallback", {
   tmdb_shows = { { id = "103409", preferredname = "World’s End Harem", airdate = { year = 2022 } } },
 }, { eq("RegularFallback", "World's End Harem - S01E01 - Folge 1", { "World's End Harem (2021)", "Season 01 [anidbid-15561]" }, "/mnt/array/Anime/Shows/GerDub") })
 
+run("Unlinked regular episode inherits the sole show from linked siblings", {
+  anime = make_anime({ id = 19930, _de = "AniDB Shou 3 Ashibe QQ Goma-chan", airdate = { year = 2016 }, episodecounts = { Episode = 24, Special = 0, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { set_id(make_ep(7, EpisodeType.Episode, { de = "Episode 7" }), 1993007) },
+  episode = set_id(make_ep(7, EpisodeType.Episode, { de = "Episode 7" }), 1993007),
+  file = { path = "/mnt/array/Downloads/_drop/episode7.mkv", media = nil, anidb = nil },
+  tmdb_shows = {
+    { id = "319455", preferredname = "Shou 3 Ashibe QQ Goma-chan", airdate = { year = 2016 } },
+  },
+  tmdb_episodes = {
+    { anidbepisodeids = { 1993001 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "319455" },
+    { anidbepisodeids = { 1993002 }, type = EpisodeType.Episode, number = 2, seasonnumber = 1, showid = "319455" },
+    { anidbepisodeids = { 1993003 }, type = EpisodeType.Episode, number = 3, seasonnumber = 1, showid = "319455" },
+    { anidbepisodeids = { 1993004 }, type = EpisodeType.Episode, number = 4, seasonnumber = 1, showid = "319455" },
+    { anidbepisodeids = { 1993005 }, type = EpisodeType.Episode, number = 5, seasonnumber = 1, showid = "319455" },
+    { anidbepisodeids = { 1993006 }, type = EpisodeType.Episode, number = 6, seasonnumber = 1, showid = "319455" },
+  },
+}, { eq("PartialShowMap", "Shou 3 Ashibe QQ Goma-chan - S01E07 - Episode 7", { "Shou 3 Ashibe QQ Goma-chan (2016) [tmdbid-319455]", "Season 01 [anidbid-19930]" }, "/mnt/array/Anime/Shows/_manual") })
+
 run("Ambiguous show extra keeps AniDB fallback", {
   anime = make_anime({ id = 88, _de = "Mixed Show", airdate = { year = 2020 } }),
   episodes = { set_id(make_ep(1, EpisodeType.Credits, { de = "Opening" }), 8801) },
