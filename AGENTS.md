@@ -9,14 +9,14 @@ Rename scripts for a large (~70k file) anime library in **Shoko**, producing a
 
 Files:
 
-- `bainesrenamer_v4.lua` — the live renamer script. This is the code you change.
+- `bainesrenamer.lua` — the live renamer script. This is the code you change.
 - `verify.lua` — 24-check test harness. Run `lua verify.lua`; every check must pass.
 - `refresh_tmdb_movies.py` — hits Shoko's v3 API to fetch uncached TMDB movie
   metadata. Stdlib only, no dependencies.
 - `migrate.lua`, `migrate_ids.py`, `migration.sql`, `MIGRATION.md` — earlier
   migration work, mostly historical. Don't touch unless asked.
 - `MEMO_TO_CHATGPT.md` — hand-over notes; read it for context.
-- `bainesrenamer_v2/v3.lua`, `_old/` — superseded, don't touch.
+- `_old/` — superseded, don't touch.
 
 ## The settled design (do not redesign)
 
@@ -43,8 +43,8 @@ For each file the renamer must:
 - The script must run on both Lua 5.1 and Lua 5.4 (the LuaRenamer plugin runs
   5.4). Keep to the intersection: no `{...}[k]`, no `goto`, no `//`. Match
   existing style.
-- After editing `bainesrenamer_v4.lua`:
-  1. `luac -p bainesrenamer_v4.lua` and `luac5.4 -p bainesrenamer_v4.lua` (both silent)
+- After editing `bainesrenamer.lua`:
+  1. `luac -p bainesrenamer.lua` and `luac5.4 -p bainesrenamer.lua` (both silent)
   2. update/add cases in `verify.lua`
   3. `lua verify.lua` and `lua5.4 verify.lua` — all checks must pass on both
 - `verify.lua` stubs the environment (`anime`, `episodes`, `episode`, `file`,

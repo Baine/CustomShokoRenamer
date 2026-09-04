@@ -301,18 +301,17 @@ end
 local tmdb_movie = get_tmdb_movie()
 local tmdb_episode = get_file_tmdb_episode()
 
--- AniDB type decides, but TMDB knows better: entries AniDB types as OVA are
--- often movies (Final Fantasy VII: Advent Children is OVA on AniDB, a movie on
--- TMDB). Any TMDB movie cross-reference then makes the whole entry a movie.
--- A TV series, however, can carry specials that TMDB classifies as movies
--- (Sherlock Hound); only the cross-referenced episode is a movie then.
--- Conversely, a movie-typed entry can hold TV episodes (Cyborg 009: Call of
--- Justice packs its 3 movies and 12 TV episodes in one AniDB entry): a file
--- whose episode links to a TMDB show is a show episode, not a movie.
+-- AniDB type decides, but TMDB knows better: a file whose episode links to a
+-- TMDB show episode is a show episode, whatever AniDB typed the entry. G-taste
+-- is OVA on AniDB and links its episodes to a TMDB show while only its special
+-- links to a TMDB movie; Cyborg 009 packs movies and TV episodes in one
+-- movie-typed entry. Otherwise OVA entries are often movies (FF7: Advent
+-- Children is OVA on AniDB, a movie on TMDB) and any TMDB movie makes the
+-- whole entry a movie. A TV series can carry specials that TMDB classifies as
+-- movies (Sherlock Hound); only the cross-referenced episode is a movie then.
 local function is_movie()
-  if anime.type == AnimeType.Movie then
-    return tmdb_episode == nil
-  end
+  if tmdb_episode ~= nil then return false end
+  if anime.type == AnimeType.Movie then return true end
   if anime.type == AnimeType.OVA and tmdb and tmdb.movies and #tmdb.movies > 0 then return true end
   return tmdb_movie ~= nil
 end

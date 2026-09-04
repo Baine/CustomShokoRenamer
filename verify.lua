@@ -1,5 +1,5 @@
 -- Verification harness for bainesrenamer (Lua 5.1 and Lua 5.4)
--- Run: lua verify.lua [script.lua]  (defaults to bainesrenamer_v5.lua)
+-- Run: lua verify.lua [script.lua]  (defaults to bainesrenamer.lua)
 
 string.cleanspaces = function(self, char)
   return (self:match("^%s*(.-)%s*$"):gsub("%s+", char or " "))
@@ -88,7 +88,7 @@ local function run(name, stubs, checks)
   env.Language, env.AnimeType, env.EpisodeType = Language, AnimeType, EpisodeType
   env.from, env.fromNothing = from, fromNothing
   env.tmdb = { episodes = stubs.tmdb_episodes or {}, shows = stubs.tmdb_shows or {}, movies = stubs.tmdb_movies or {} }
-  local chunk = loadfile_env(arg and arg[1] or "bainesrenamer_v5.lua", env)
+  local chunk = loadfile_env(arg and arg[1] or "bainesrenamer.lua", env)
   chunk()
   for _, check in ipairs(checks) do
     check(env, name)
@@ -901,5 +901,34 @@ run("Manual link has no collision filename", {
   assert(e.filename == "Manual Show - S01E01", name .. " primary filename mismatch")
   assert(e.collision_filename == nil, name .. " manual link unexpectedly received a collision filename")
 end })
+
+run("OVA entry: show-linked episode stays a show despite TMDB movie", {
+  anime = make_anime({ id = 511, restricted = true, type = AnimeType.OVA, _de = "G-taste", airdate = { year = 1999 },
+      episodecounts = { Episode = 7, Special = 1, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { de = "Folge 1" }), 5622) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { de = "Folge 1" }), 5622),
+  file = {
+    path = "/mnt/array/Downloads/_drop/gt-e1.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = {}, sublanguages = { "de" } } },
+  },
+  tmdb_shows = { { id = "81975", preferredname = "G-Taste", airdate = { year = 1999 } } },
+  tmdb_episodes = { { anidbepisodeids = { 5622 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "81975" } },
+  tmdb_movies = { { id = "1434810", anidbepisodeids = { 22955 }, preferredname = "G-Taste: Special", airdate = { year = 1999 } } },
+}, { eq("GtasteShowEp", "G-Taste - S01E01 - Folge 1", { "G-Taste (1999) [tmdbid-81975]", "Season 01 [anidbid-511]" }, "/mnt/array/Hentai/Shows/GerSub") })
+
+run("OVA entry: special with TMDB movie link is a standalone movie", {
+  anime = make_anime({ id = 511, restricted = true, type = AnimeType.OVA, _de = "G-taste", airdate = { year = 1999 },
+      episodecounts = { Episode = 7, Special = 1, Trailer = 0, Credits = 0, Other = 0, Parody = 0 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Special, { de = "Special" }), 22955) },
+  episode = set_id(make_ep(1, EpisodeType.Special, { de = "Special" }), 22955),
+  file = {
+    path = "/mnt/array/Downloads/_drop/gt-special.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = {}, sublanguages = { "de" } } },
+  },
+  tmdb_shows = { { id = "81975", preferredname = "G-Taste", airdate = { year = 1999 } } },
+  tmdb_movies = { { id = "1434810", anidbepisodeids = { 22955 }, preferredname = "G-Taste: Special", airdate = { year = 1999 } } },
+}, { eq("GtasteMovieSpecial", "G-Taste: Special (1999)", { "G-Taste: Special (1999) [tmdbid-1434810]" }, "/mnt/array/Hentai/Movies/GerSub") })
 
 print(string.format("%d checks passed", passed))
