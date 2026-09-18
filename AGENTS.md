@@ -4,19 +4,16 @@
 
 Rename scripts for a large (~70k file) anime library in **Shoko**, producing a
 **TMDB-focused** layout that Tofa can match. The primary deliverable is
-`bainesrenamer_v4.lua`, run by the **LuaRenamer** plugin
+`bainesrenamer.lua`, run by the **LuaRenamer** plugin
 (separate repo: `C:\Users\Paul\Documents\GitHub\LuaRenamer`).
 
 Files:
 
 - `bainesrenamer.lua` — the live renamer script. This is the code you change.
-- `verify.lua` — 24-check test harness. Run `lua verify.lua`; every check must pass.
-- `refresh_tmdb_movies.py` — hits Shoko's v3 API to fetch uncached TMDB movie
-  metadata. Stdlib only, no dependencies.
-- `migrate.lua`, `migrate_ids.py`, `migration.sql`, `MIGRATION.md` — earlier
-  migration work, mostly historical. Don't touch unless asked.
-- `MEMO_TO_CHATGPT.md` — hand-over notes; read it for context.
-- `_old/` — superseded, don't touch.
+- `verify.lua` — test harness. Run `lua verify.lua`; every check must pass.
+- `nomedia_vfs.sh` — adds `.nomedia` markers to Shoko VFS import folders.
+- `shoko_relocate.sh` — drives Shoko's batch relocation API for `ids.txt`.
+- `_old/` — superseded, kept for reference. Don't touch.
 
 ## The settled design (do not redesign)
 
@@ -64,8 +61,8 @@ For each file the renamer must:
 ## What NOT to do (learned the hard way)
 
 - **No API call caching. Do not add any caching layer, memoization, or wrapper
-  around Shoko/TMDB API calls.** The refresh script already does exactly what it
-  needs; a past attempt added a cache uninvited. Nothing here needs one.
+  around Shoko/TMDB API calls.** A past attempt added one uninvited. Nothing
+  here needs it.
 - No new dependencies. Stdlib only (`urllib`, `sqlite3`, `argparse` — not
   `requests`/`httpx`). No build tooling, no package.json.
 - No abstractions, interfaces, factories, config files, or "for later"

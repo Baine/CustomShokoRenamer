@@ -1,10 +1,7 @@
-﻿################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
-/.idea
-/.vs/
-/packages
-/obj
-**.csproj.user
-/bin
-/refresh_tmdb_movies.py
+﻿## runtime state
+/.shoko_resume
+/ids.txt
+
+## IDE
+/.idea/
+/.vscode/
