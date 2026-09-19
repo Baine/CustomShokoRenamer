@@ -129,6 +129,18 @@ local function official_title(model)
   return nil
 end
 
+-- Titles of the TMDB entry alone. Once a TMDB entry matched, the AniDB anime
+-- title must never leak into the name: two AniDB entries sharing one TMDB show
+-- (Overlord / Overlord II, both tmdbid-64196) would otherwise produce two root
+-- folders with the same ID.
+local function select_tmdb_title(tmdb_entry)
+  return localized_title(tmdb_entry, Language.German)
+      or localized_title(tmdb_entry, Language.English)
+      or official_title(tmdb_entry)
+      or readable_title(tmdb_entry and tmdb_entry.preferredname)
+      or readable_title(tmdb_entry and tmdb_entry.defaultname)
+end
+
 local function select_title(tmdb_entry)
   return localized_title(tmdb_entry, Language.German)
       or localized_title(anime, Language.German)
@@ -349,7 +361,7 @@ local root_tmdb_show_id = tmdb_episode and tmdb_episode.showid or nil
 local function get_show_name()
   local s = root_tmdb_show
   if s then
-    local name = select_title(s)
+    local name = select_tmdb_title(s)
     if name then return name end
   end
   if root_tmdb_show_id then return "TMDB Show" end
@@ -366,7 +378,7 @@ local function get_anime_folder_name(movie)
   if movie then
     local m = root_tmdb_movie
     if m then
-      local name = select_title(m) or animename
+      local name = select_tmdb_title(m) or animename
       local suffix = m.airdate and not name:match("%(%d%d%d%d%)$")
           and (" (" .. tostring(m.airdate.year) .. ")") or get_year_suffix(name)
       local tag = " [tmdbid-" .. tostring(m.id) .. "]"
@@ -375,9 +387,10 @@ local function get_anime_folder_name(movie)
   else
     local s = root_tmdb_show
     if root_tmdb_show_id then
-      -- The TMDB show remains authoritative for ID/date metadata. Its readable
-      -- localized title can fall back to AniDB according to select_title.
-      local name = s and select_title(s) or "TMDB Show"
+      -- The TMDB show remains authoritative for ID/date metadata. Its own
+      -- titles (select_tmdb_title) are the only name source here so every
+      -- AniDB entry sharing this show resolves to the same folder.
+      local name = s and select_tmdb_title(s) or "TMDB Show"
       name = name or "TMDB Show"
       local suffix = s and s.airdate and not name:match("%(%d%d%d%d%)$")
           and (" (" .. tostring(s.airdate.year) .. ")") or ""
@@ -608,7 +621,7 @@ if movie then
   local title = animename
   local suffix = nil
   if m then
-    local name = select_title(m)
+    local name = select_tmdb_title(m)
     if name then
       title = name
       suffix = m.airdate and not name:match("%(%d%d%d%d%)$")

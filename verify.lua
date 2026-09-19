@@ -133,7 +133,7 @@ run("TMDB show folder over anidb title", {
   tmdb_episodes = { { anidbepisodeids = { 432421 }, type = EpisodeType.Episode, number = 21, seasonnumber = 3, showid = "8864" } },
 }, { eq("TmdbShow", ".hack - S03E21 - Defeat", { ".hack (2002) [tmdbid-8864]", "Season 03 [anidbid-4324]" }, "/mnt/array/Anime/Shows/GerDub") })
 
-run("Unreadable TMDB show title falls back to AniDB English", {
+run("Unreadable TMDB show title uses the TMDB placeholder, not AniDB", {
   anime = make_anime({
     id = 11033, restricted = true, _en = "Raunchy Roleplay",
     preferredname = "Ikoku na Retro", airdate = { year = 2015 },
@@ -150,12 +150,12 @@ run("Unreadable TMDB show title falls back to AniDB English", {
   },
 }, { eq(
   "ReadableAniDBEnglish",
-  "Raunchy Roleplay - S01E01 - OVA",
-  { "Raunchy Roleplay (2015) [tmdbid-317115]", "Season 01 [anidbid-11033]" },
+  "TMDB Show - S01E01 - OVA",
+  { "TMDB Show (2015) [tmdbid-317115]", "Season 01 [anidbid-11033]" },
   "/mnt/array/Hentai/Shows/_manual"
 ) })
 
-run("German AniDB title wins over English TMDB title", {
+run("English TMDB title wins over German AniDB title", {
   anime = make_anime({ id = 51, _de = "Deutscher AniDB-Titel", _en = "English AniDB Title" }),
   episodes = { set_id(make_ep(1, EpisodeType.Episode), 5101) },
   episode = set_id(make_ep(1, EpisodeType.Episode), 5101),
@@ -172,8 +172,8 @@ run("German AniDB title wins over English TMDB title", {
   },
 }, { eq(
   "GermanBeforeEnglish",
-  "Deutscher AniDB-Titel - S01E01",
-  { "Deutscher AniDB-Titel (2021) [tmdbid-510]", "Season 01 [anidbid-51]" },
+  "English TMDB Title - S01E01",
+  { "English TMDB Title (2021) [tmdbid-510]", "Season 01 [anidbid-51]" },
   "/mnt/array/Anime/Shows/_manual"
 ) })
 
@@ -556,6 +556,19 @@ run("OVA without TMDB movie stays a show", {
     anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
   },
 }, { eq("OvaShow", ".hack//Roots - S01E21 - Defeat", { ".hack//Roots (2006)", "Season 01 [anidbid-4324]" }, "/mnt/array/Anime/Shows/GerDub") })
+
+run("AniDB entry name never leaks into a TMDB-keyed show folder", {
+  anime = make_anime({ id = 12952, _de = "Overlord II", airdate = { year = 2018 } }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { de = "Anbruch der Verzweiflung" }), 129521) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { de = "Anbruch der Verzweiflung" }), 129521),
+  file = {
+    path = "/mnt/array/Downloads/_drop/overlord2-e1.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = { { id = "64196", airdate = { year = 2015 } } },
+  tmdb_episodes = { { anidbepisodeids = { 129521 }, type = EpisodeType.Episode, number = 1, seasonnumber = 2, showid = "64196" } },
+}, { eq("OverlordII", "TMDB Show - S02E01 - Anbruch der Verzweiflung", { "TMDB Show (2015) [tmdbid-64196]", "Season 02 [anidbid-12952]" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("TV show normal ep stays a show despite movie-linked specials", {
   anime = make_anime({ id = 617, type = AnimeType.TVSeries, _de = "Die Abenteuer des Sherlock Holmes", airdate = { year = 1984 } }),
