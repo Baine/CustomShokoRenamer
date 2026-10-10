@@ -135,6 +135,7 @@ end
 -- folders with the same ID.
 local function select_tmdb_title(tmdb_entry)
   return localized_title(tmdb_entry, Language.German)
+      or localized_title(tmdb_entry, Language.EnglishAmerican)
       or localized_title(tmdb_entry, Language.English)
       or official_title(tmdb_entry)
       or readable_title(tmdb_entry and tmdb_entry.preferredname)
@@ -144,7 +145,9 @@ end
 local function select_title(tmdb_entry)
   return localized_title(tmdb_entry, Language.German)
       or localized_title(anime, Language.German)
+      or localized_title(tmdb_entry, Language.EnglishAmerican)
       or localized_title(tmdb_entry, Language.English)
+      or localized_title(anime, Language.EnglishAmerican)
       or localized_title(anime, Language.English)
       or official_title(tmdb_entry)
       or official_title(anime)

@@ -5,7 +5,7 @@ string.cleanspaces = function(self, char)
   return (self:match("^%s*(.-)%s*$"):gsub("%s+", char or " "))
 end
 
-local Language = { German = "de", English = "en" }
+local Language = { German = "de", English = "en", EnglishAmerican = "en-US" }
 local AnimeType = { Movie = "Movie", OVA = "OVA", TVSeries = "TVSeries" }
 local EpisodeType = { Episode = "Episode", Special = "Special", Trailer = "Trailer", Credits = "Credits", Other = "Other", Parody = "Parody" }
 
@@ -162,8 +162,9 @@ run("English TMDB title wins over German AniDB title", {
   file = { path = "/mnt/array/Downloads/_drop/title.mkv", media = nil, anidb = nil },
   tmdb_shows = { {
     id = "510", preferredname = "English TMDB Title", airdate = { year = 2021 },
+    titles = { { type = "Official", name = "Власть книжного червя" } },
     getname = function(_, lang)
-      if lang == Language.English then return "English TMDB Title" end
+      if lang == Language.EnglishAmerican then return "English TMDB Title" end
       return nil
     end,
   } },
