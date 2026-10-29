@@ -77,10 +77,13 @@ local function has(list, lang)
   return from(list or {}):contains(lang)
 end
 
--- Prefer titles the library owner can read: German first, then English. A
--- readable official/default title is only a last fallback. Hiragana, Katakana,
--- CJK ideographs and Korean writing are rejected even when Shoko selected them
--- as preferredname, so a Japanese TMDB title cannot hide an English AniDB one.
+-- Title policy, in order and nothing else: the German title of the TMDB entry,
+-- then the German, English or main (romaji) title of the AniDB entry. TMDB
+-- translates nearly every show into uk/ru/zh/ko/vi/th even when it has no
+-- German title, and those translations used to win a fallback (SHIROBAKO came
+-- out as Ukrainian), so no other TMDB language is considered at all. The only
+-- guard left is Latin script on the main-title fallback, which keeps a native
+-- Japanese title from becoming a folder name.
 local function utf8_codepoint(c)
   local b1, b2, b3, b4 = c:byte(1, 4)
   if b1 < 128 then return b1 end
@@ -93,15 +96,9 @@ local function readable_title(name)
   if not name or name == "" then return nil end
   for c in name:gmatch(".[\128-\191]*") do
     local cp = utf8_codepoint(c)
-    if (cp >= 4352 and cp <= 4607)       -- Hangul Jamo
-        or (cp >= 12352 and cp <= 12543) -- Hiragana and Katakana
-        or (cp >= 12592 and cp <= 12687) -- Hangul Compatibility Jamo
-        or (cp >= 12784 and cp <= 12799) -- Katakana Phonetic Extensions
-        or (cp >= 13312 and cp <= 19903) -- CJK Unified Ideographs Extension A
-        or (cp >= 19968 and cp <= 40959) -- CJK Unified Ideographs
-        or (cp >= 44032 and cp <= 55203) -- Hangul Syllables
-        or (cp >= 63744 and cp <= 64255) -- CJK Compatibility Ideographs
-        or (cp >= 65382 and cp <= 65439) then -- Halfwidth Katakana
+    if cp >= 0x250                          -- past Latin-1 / Latin Extended-A+B
+        and not (cp >= 0x1E00 and cp <= 0x1EFF)  -- Latin Extended Additional
+        and not (cp >= 0x2000 and cp <= 0x206F) then -- typographic punctuation
       return nil
     end
   end
@@ -119,45 +116,35 @@ local function localized_title(model, language)
   return nil
 end
 
-local function official_title(model)
+local function main_title(model)
   for i, title in ipairs(model and model.titles or {}) do
-    if tostring(title.type) == "Official" then
+    if tostring(title.type) == "Main" then
       local name = readable_title(title.name)
       if name then return name end
     end
   end
-  return nil
+  -- Shoko's own pick of the AniDB titles is the main title in practice; used
+  -- when the model exposes only preferred/default names.
+  return readable_title(model and model.preferredname)
+      or readable_title(model and model.defaultname)
 end
 
--- Titles of the TMDB entry alone. Once a TMDB entry matched, the AniDB anime
--- title must never leak into the name: two AniDB entries sharing one TMDB show
--- (Overlord / Overlord II, both tmdbid-64196) would otherwise produce two root
--- folders with the same ID.
+-- The matched TMDB entry is the only name source for a TMDB-keyed folder, so
+-- one show shared by several AniDB entries (Overlord / Overlord II, both
+-- tmdbid-64196) still yields one folder name. It contributes its German title
+-- or nothing.
 local function select_tmdb_title(tmdb_entry)
   return localized_title(tmdb_entry, Language.German)
-      or localized_title(tmdb_entry, Language.EnglishAmerican)
-      or localized_title(tmdb_entry, Language.English)
-      or official_title(tmdb_entry)
-      or readable_title(tmdb_entry and tmdb_entry.preferredname)
-      or readable_title(tmdb_entry and tmdb_entry.defaultname)
 end
 
-local function select_title(tmdb_entry)
-  return localized_title(tmdb_entry, Language.German)
-      or localized_title(anime, Language.German)
-      or localized_title(tmdb_entry, Language.EnglishAmerican)
-      or localized_title(tmdb_entry, Language.English)
-      or localized_title(anime, Language.EnglishAmerican)
-      or localized_title(anime, Language.English)
-      or official_title(tmdb_entry)
-      or official_title(anime)
-      or readable_title(tmdb_entry and tmdb_entry.preferredname)
-      or readable_title(tmdb_entry and tmdb_entry.defaultname)
-      or readable_title(anime.preferredname)
-      or readable_title(anime.defaultname)
+local function select_anidb_title(model)
+  return localized_title(model, Language.German)
+      or localized_title(model, Language.English)
+      or localized_title(model, Language.EnglishAmerican)
+      or main_title(model)
 end
 
-local animename = select_title(nil) or ("Anime " .. tostring(anime.id))
+local animename = select_anidb_title(anime) or ("Anime " .. tostring(anime.id))
 local base = anime.restricted and "Hentai" or "Anime"
 
 -- Choose the script's primary episode independently of the order supplied by
@@ -358,23 +345,20 @@ local root_tmdb_movie = tmdb_movie
 local root_tmdb_show = tmdb_show
 local root_tmdb_show_id = tmdb_episode and tmdb_episode.showid or nil
 
--- Display name of the series, using the shared language/source priority above.
--- The matched TMDB show still supplies the root ID, year and season structure.
+-- Display name of the series: the TMDB German title, else the AniDB title in
+-- German, English or main. The matched TMDB show still supplies the root ID,
+-- year and season structure.
 -- Used for the root folder AND the file prefix.
 local function get_show_name()
   local s = root_tmdb_show
-  if s then
-    local name = select_tmdb_title(s)
-    if name then return name end
-  end
-  if root_tmdb_show_id then return "TMDB Show" end
-  return animename
+  return (s and select_tmdb_title(s)) or animename
 end
 
 -- Root folder name. TMDB structure wins: one anime can be spread over several
 -- AniDB entries (Sign, Twilight and Roots are seasons of ".hack"), and they
 -- must share one show folder. Falls back to the AniDB title when the file has
--- no TMDB cross-reference. Movies use the TMDB movie of the file's episode
+-- no TMDB cross-reference or TMDB has no German title — the tmdbid tag still
+-- identifies the entry then. Movies use the TMDB movie of the file's episode
 -- when there is one (a multi-part movie becomes one folder per film) and they
 -- have no season level.
 local function get_anime_folder_name(movie)
@@ -390,11 +374,10 @@ local function get_anime_folder_name(movie)
   else
     local s = root_tmdb_show
     if root_tmdb_show_id then
-      -- The TMDB show remains authoritative for ID/date metadata. Its own
-      -- titles (select_tmdb_title) are the only name source here so every
-      -- AniDB entry sharing this show resolves to the same folder.
-      local name = s and select_tmdb_title(s) or "TMDB Show"
-      name = name or "TMDB Show"
+      -- The TMDB show remains authoritative for ID/date metadata. Its German
+      -- title comes first so every AniDB entry sharing this show resolves to
+      -- the same folder; a show without one takes the AniDB title.
+      local name = s and select_tmdb_title(s) or animename
       local suffix = s and s.airdate and not name:match("%(%d%d%d%d%)$")
           and (" (" .. tostring(s.airdate.year) .. ")") or ""
       local tag = " [tmdbid-" .. tostring(root_tmdb_show_id) .. "]"
@@ -526,15 +509,23 @@ local function get_marker()
   return table.concat(parts)
 end
 
--- Episode names use the preferred language with an English fallback. A single
+-- Episode names: the TMDB episode's German title first, then the AniDB episode
+-- title in German, English or its main title. No other source, so a TMDB
+-- translation in some other language can never become a file name. A single
 -- episode returns its name directly; several episodes are joined with "/".
+local function episode_title(ep)
+  local tmdb_ep = get_tmdb_episode(ep)
+  return (tmdb_ep and localized_title(tmdb_ep, Language.German))
+      or select_anidb_title(ep) or ""
+end
+
 local function get_episode_names()
   if #ordered_episodes == 1 then
-    return primary_episode:getname(episodelanguage) or primary_episode:getname(Language.English) or ""
+    return episode_title(primary_episode)
   end
   local names = {}
   for i, ep in ipairs(ordered_episodes) do
-    local name = ep:getname(episodelanguage) or ep:getname(Language.English) or ""
+    local name = episode_title(ep)
     if name ~= "" then names[#names + 1] = name end
   end
   return table.concat(names, "/")

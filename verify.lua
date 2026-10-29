@@ -133,7 +133,7 @@ run("TMDB show folder over anidb title", {
   tmdb_episodes = { { anidbepisodeids = { 432421 }, type = EpisodeType.Episode, number = 21, seasonnumber = 3, showid = "8864" } },
 }, { eq("TmdbShow", ".hack - S03E21 - Defeat", { ".hack (2002) [tmdbid-8864]", "Season 03 [anidbid-4324]" }, "/mnt/array/Anime/Shows/GerDub") })
 
-run("Unreadable TMDB show title uses the TMDB placeholder, not AniDB", {
+run("TMDB show without a Latin title falls back to the AniDB name", {
   anime = make_anime({
     id = 11033, restricted = true, _en = "Raunchy Roleplay",
     preferredname = "Ikoku na Retro", airdate = { year = 2015 },
@@ -150,12 +150,60 @@ run("Unreadable TMDB show title uses the TMDB placeholder, not AniDB", {
   },
 }, { eq(
   "ReadableAniDBEnglish",
-  "TMDB Show - S01E01 - OVA",
-  { "TMDB Show (2015) [tmdbid-317115]", "Season 01 [anidbid-11033]" },
+  "Raunchy Roleplay - S01E01 - OVA",
+  { "Raunchy Roleplay (2015) [tmdbid-317115]", "Season 01 [anidbid-11033]" },
   "/mnt/array/Hentai/Shows/_manual"
 ) })
 
-run("English TMDB title wins over German AniDB title", {
+run("TMDB show without a German title uses the AniDB main title", {
+  anime = make_anime({
+    id = 10779, preferredname = "Shirobako", airdate = { year = 2014 },
+    titles = { { type = "Main", name = "Shirobako" } },
+  }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { en = "Exodus to Tomorrow" }), 1077901) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { en = "Exodus to Tomorrow" }), 1077901),
+  file = {
+    path = "/mnt/array/Downloads/_drop/shirobako.mkv",
+    media = nil,
+    anidb = { media = { dublanguages = { "de" }, sublanguages = {} } },
+  },
+  tmdb_shows = { {
+    id = "64492", defaultname = "SHIROBAKO", airdate = { year = 2014 },
+    titles = {
+      { type = "Official", name = "白箱" },
+      { type = "Official", name = "Біла Коробка" },
+      { type = "Official", name = "Белая коробка" },
+      { type = "Main", name = "SHIROBAKO" },
+    },
+    getname = function() return nil end,
+  } },
+  tmdb_episodes = {
+    { anidbepisodeids = { 1077901 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "64492" },
+  },
+}, { eq(
+  "CyrillicSkipped",
+  "Shirobako - S01E01 - Exodus to Tomorrow",
+  { "Shirobako (2014) [tmdbid-64492]", "Season 01 [anidbid-10779]" },
+  "/mnt/array/Anime/Shows/GerDub"
+) })
+
+run("AniDB non-main titles are ignored for the main title", {
+  anime = make_anime({
+    id = 10725, preferredname = "Yona",
+    titles = { { type = "Main", name = "Yona" }, { type = "Official", name = "Рассвет Ёны" } },
+    airdate = { year = 2014 },
+  }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode), 1072501) },
+  episode = set_id(make_ep(1, EpisodeType.Episode), 1072501),
+  file = { path = "/mnt/array/Downloads/_drop/yona.mkv", media = nil, anidb = nil },
+}, { eq(
+  "CyrillicAniDBSkipped",
+  "Yona - S01E01",
+  { "Yona (2014)", "Season 01 [anidbid-10725]" },
+  "/mnt/array/Anime/Shows/_manual"
+) })
+
+run("AniDB German title is used when TMDB has no German title", {
   anime = make_anime({ id = 51, _de = "Deutscher AniDB-Titel", _en = "English AniDB Title" }),
   episodes = { set_id(make_ep(1, EpisodeType.Episode), 5101) },
   episode = set_id(make_ep(1, EpisodeType.Episode), 5101),
@@ -173,12 +221,40 @@ run("English TMDB title wins over German AniDB title", {
   },
 }, { eq(
   "GermanBeforeEnglish",
-  "English TMDB Title - S01E01",
-  { "English TMDB Title (2021) [tmdbid-510]", "Season 01 [anidbid-51]" },
+  "Deutscher AniDB-Titel - S01E01",
+  { "Deutscher AniDB-Titel (2021) [tmdbid-510]", "Season 01 [anidbid-51]" },
   "/mnt/array/Anime/Shows/_manual"
 ) })
 
-run("English TMDB title wins over English AniDB title", {
+run("TMDB German show and episode titles win over AniDB", {
+  anime = make_anime({ id = 64, _de = "AniDB Serie", _en = "AniDB Series" }),
+  episodes = { set_id(make_ep(1, EpisodeType.Episode, { de = "AniDB Folge", en = "AniDB Episode" }), 6401) },
+  episode = set_id(make_ep(1, EpisodeType.Episode, { de = "AniDB Folge", en = "AniDB Episode" }), 6401),
+  file = { path = "/mnt/array/Downloads/_drop/title.mkv", media = nil, anidb = nil },
+  tmdb_shows = { {
+    id = "640", airdate = { year = 2021 },
+    getname = function(_, lang)
+      if lang == Language.German then return "TMDB Serie" end
+      return nil
+    end,
+  } },
+  tmdb_episodes = {
+    {
+      anidbepisodeids = { 6401 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "640",
+      getname = function(_, lang)
+        if lang == Language.German then return "TMDB Folge" end
+        return nil
+      end,
+    },
+  },
+}, { eq(
+  "TmdbGermanWins",
+  "TMDB Serie - S01E01 - TMDB Folge",
+  { "TMDB Serie (2021) [tmdbid-640]", "Season 01 [anidbid-64]" },
+  "/mnt/array/Anime/Shows/_manual"
+) })
+
+run("English AniDB title is used when TMDB has no German title", {
   anime = make_anime({ id = 52, _en = "English AniDB Title" }),
   episodes = { set_id(make_ep(1, EpisodeType.Episode), 5201) },
   episode = set_id(make_ep(1, EpisodeType.Episode), 5201),
@@ -194,9 +270,9 @@ run("English TMDB title wins over English AniDB title", {
     { anidbepisodeids = { 5201 }, type = EpisodeType.Episode, number = 1, seasonnumber = 1, showid = "520" },
   },
 }, { eq(
-  "TMDBBeforeAniDB",
-  "English TMDB Title - S01E01",
-  { "English TMDB Title (2021) [tmdbid-520]", "Season 01 [anidbid-52]" },
+  "AniDBEnglish",
+  "English AniDB Title - S01E01",
+  { "English AniDB Title (2021) [tmdbid-520]", "Season 01 [anidbid-52]" },
   "/mnt/array/Anime/Shows/_manual"
 ) })
 
@@ -295,7 +371,7 @@ run("TMDB show ID survives missing show metadata", {
   tmdb_episodes = {
     { anidbepisodeids = { 7802 }, type = EpisodeType.Episode, number = 2, seasonnumber = 3, showid = "78000" },
   },
-}, { eq("MissingTmdbShow", "TMDB Show - S03E02 - Folge 2", { "TMDB Show [tmdbid-78000]", "Season 03 [anidbid-78]" }, "/mnt/array/Anime/Shows/GerDub") })
+}, { eq("MissingTmdbShow", "AniDB Fallback Title - S03E02 - Folge 2", { "AniDB Fallback Title [tmdbid-78000]", "Season 03 [anidbid-78]" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("Anidb title fallback when no TMDB show", {
   anime = make_anime({ id = 4324, _de = ".hack//Roots", airdate = { year = 2006 } }),
@@ -558,7 +634,7 @@ run("OVA without TMDB movie stays a show", {
   },
 }, { eq("OvaShow", ".hack//Roots - S01E21 - Defeat", { ".hack//Roots (2006)", "Season 01 [anidbid-4324]" }, "/mnt/array/Anime/Shows/GerDub") })
 
-run("AniDB entry name never leaks into a TMDB-keyed show folder", {
+run("TMDB show without titles takes the AniDB name but keeps the tmdbid", {
   anime = make_anime({ id = 12952, _de = "Overlord II", airdate = { year = 2018 } }),
   episodes = { set_id(make_ep(1, EpisodeType.Episode, { de = "Anbruch der Verzweiflung" }), 129521) },
   episode = set_id(make_ep(1, EpisodeType.Episode, { de = "Anbruch der Verzweiflung" }), 129521),
@@ -569,7 +645,7 @@ run("AniDB entry name never leaks into a TMDB-keyed show folder", {
   },
   tmdb_shows = { { id = "64196", airdate = { year = 2015 } } },
   tmdb_episodes = { { anidbepisodeids = { 129521 }, type = EpisodeType.Episode, number = 1, seasonnumber = 2, showid = "64196" } },
-}, { eq("OverlordII", "TMDB Show - S02E01 - Anbruch der Verzweiflung", { "TMDB Show (2015) [tmdbid-64196]", "Season 02 [anidbid-12952]" }, "/mnt/array/Anime/Shows/GerDub") })
+}, { eq("OverlordII", "Overlord II - S02E01 - Anbruch der Verzweiflung", { "Overlord II (2015) [tmdbid-64196]", "Season 02 [anidbid-12952]" }, "/mnt/array/Anime/Shows/GerDub") })
 
 run("TV show normal ep stays a show despite movie-linked specials", {
   anime = make_anime({ id = 617, type = AnimeType.TVSeries, _de = "Die Abenteuer des Sherlock Holmes", airdate = { year = 1984 } }),
